@@ -1,0 +1,16 @@
+CREATE TABLE IF NOT EXISTS mindlarp.consent_preferences (
+  visitor_id uuid PRIMARY KEY,
+  user_id uuid REFERENCES mindlarp.users(id) ON DELETE CASCADE,
+  personal_data boolean NOT NULL DEFAULT false,
+  analytics_cookies boolean NOT NULL DEFAULT false,
+  decision text NOT NULL CHECK (decision IN ('accept_all', 'necessary_only', 'customized')),
+  policy_version text NOT NULL CHECK (char_length(policy_version) BETWEEN 1 AND 40),
+  recorded_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS consent_preferences_user_id_idx
+  ON mindlarp.consent_preferences (user_id)
+  WHERE user_id IS NOT NULL;
+
+ALTER TABLE mindlarp.consent_preferences ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE mindlarp.consent_preferences FROM PUBLIC, anon, authenticated;
