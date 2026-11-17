@@ -359,3 +359,5 @@ input, select { width: 100%; background: #0f0f0f; color: var(--text); border: 1p
   .consent-popup { animation: none; }
   .consent-option input, .consent-option input::before, .consent-button { transition: none; }
 }
+
+.consent-error { margin: 12px 0 0; padding: 9px 10px; border: 1px solid #d98b8b70; border-radius: 4px; color: #ffc1c1; background: #7a202018; font-size: 9px; line-height: 1.55; }
