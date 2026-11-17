@@ -1,57 +1,61 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-
-const STORAGE_KEY = 'mindlarp.consent.v1';
-const POLICY_VERSION = '2026-11-17';
-
-const DEFAULTS = {
-  personalData: false,
-  analyticsCookies: false,
-};
-
-function readSavedChoice() {
-  try {
-    const value = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || 'null');
-    if (!value || value.version !== POLICY_VERSION) return null;
-    return {
-      personalData: value.personalData === true,
-      analyticsCookies: value.analyticsCookies === true,
-    };
-  } catch {
-    return null;
-  }
-}
+import {
+  CONSENT_POLICY_VERSION,
+  DEFAULT_CONSENT,
+  loadConsentedScripts,
+  readConsent,
+  saveConsent,
+} from '@/src/consent.js';
 
 export function ConsentPopup() {
   const [ready, setReady] = useState(false);
   const [visible, setVisible] = useState(false);
   const [customizing, setCustomizing] = useState(false);
-  const [choice, setChoice] = useState(DEFAULTS);
+  const [choice, setChoice] = useState({ ...DEFAULT_CONSENT });
+  const [storageError, setStorageError] = useState(false);
 
   useEffect(() => {
-    const saved = readSavedChoice();
-    if (saved) setChoice(saved);
+    const saved = readConsent();
+    if (saved) setChoice({ personalData: saved.personalData, analyticsCookies: saved.analyticsCookies });
     else setVisible(true);
     setReady(true);
+
+    const sync = () => {
+      const latest = readConsent();
+      if (!latest) {
+        setChoice({ ...DEFAULT_CONSENT });
+        setVisible(true);
+        return;
+      }
+      setChoice({ personalData: latest.personalData, analyticsCookies: latest.analyticsCookies });
+      loadConsentedScripts();
+    };
+    const onStorage = (event) => {
+      if (event.key === 'mindlarp.consent.v2') sync();
+    };
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('mindlarp:consent-change', sync);
+    loadConsentedScripts();
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('mindlarp:consent-change', sync);
+    };
   }, []);
 
   function save(nextChoice) {
-    const record = {
-      ...nextChoice,
-      version: POLICY_VERSION,
-      savedAt: new Date().toISOString(),
-    };
-
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(record));
+      saveConsent(nextChoice);
+      setChoice(nextChoice);
+      setVisible(false);
+      setCustomizing(false);
+      setStorageError(false);
+      loadConsentedScripts();
     } catch {
-      // Keep the current page usable when browser storage is unavailable.
+      setStorageError(true);
     }
-
-    setChoice(nextChoice);
-    setVisible(false);
-    setCustomizing(false);
   }
 
   if (!ready) return null;
@@ -59,19 +63,13 @@ export function ConsentPopup() {
   return (
     <>
       {!visible && (
-        <button
-          className="consent-settings-trigger"
-          type="button"
-          onClick={() => {
-            setCustomizing(true);
-            setVisible(true);
-          }}
-          aria-label="Открыть настройки конфиденциальности"
-        >
+        <button className="consent-settings-trigger" type="button" onClick={() => {
+          setCustomizing(true);
+          setVisible(true);
+        }} aria-label="Открыть настройки конфиденциальности">
           <span aria-hidden="true">◈</span> PRIVACY
         </button>
       )}
-
       {visible && (
         <section className="consent-popup" role="dialog" aria-modal="false" aria-labelledby="consent-title" aria-describedby="consent-description">
           <div className="consent-popup-topline">
@@ -86,56 +84,46 @@ export function ConsentPopup() {
             </div>
           </div>
           <p id="consent-description" className="consent-intro">
-            Выберите, разрешаете ли вы дополнительную обработку персональных данных и необязательные cookies.
-            Необходимые технологии сайта работают независимо от этих настроек.
+            Необязательные категории выключены по умолчанию. Базовая обработка данных, необходимая для аккаунта и безопасности сервиса, описана в политике конфиденциальности и не управляется этим окном.
           </p>
           <div className="consent-links">
             <a href="/legal">Политика конфиденциальности <span aria-hidden="true">↗</span></a>
             <a href="/legal#cookies">О cookies <span aria-hidden="true">↗</span></a>
           </div>
-
           {customizing && (
             <div className="consent-options">
               <label className="consent-option">
                 <span>
                   <strong>Дополнительная обработка персональных данных</strong>
-                  <small>Согласие на дополнительные цели обработки, которые должны быть конкретно описаны в политике конфиденциальности. Необходимая для работы сервиса обработка регулируется отдельно.</small>
+                  <small>Отдельное согласие для дополнительных функций и целей, которые должны быть конкретно перечислены в политике. Не является согласием на любую обработку данных.</small>
                 </span>
-                <input
-                  type="checkbox"
-                  checked={choice.personalData}
-                  onChange={(event) => setChoice((current) => ({ ...current, personalData: event.target.checked }))}
-                />
+                <input type="checkbox" checked={choice.personalData} onChange={(event) => setChoice((current) => ({ ...current, personalData: event.target.checked }))} />
               </label>
               <label className="consent-option">
                 <span>
                   <strong>Аналитические и необязательные cookies</strong>
-                  <small>Разрешить необязательные cookies для анализа использования сайта. Они не должны устанавливаться до вашего согласия.</small>
+                  <small>Разрешить аналитические скрипты, явно подключённые к этой категории. Скрипты с атрибутом data-consent-src не загружаются до согласия.</small>
                 </span>
-                <input
-                  type="checkbox"
-                  checked={choice.analyticsCookies}
-                  onChange={(event) => setChoice((current) => ({ ...current, analyticsCookies: event.target.checked }))}
-                />
+                <input type="checkbox" checked={choice.analyticsCookies} onChange={(event) => setChoice((current) => ({ ...current, analyticsCookies: event.target.checked }))} />
               </label>
             </div>
           )}
-
+          {storageError && <p className="consent-error" role="alert">Не удалось сохранить выбор в этом браузере. Настройки не применены. Проверьте, разрешено ли хранение данных сайта.</p>}
           <div className="consent-actions">
             {customizing ? (
               <>
-                <button className="consent-button consent-button-muted" type="button" onClick={() => save(DEFAULTS)}>Только необходимые</button>
+                <button className="consent-button consent-button-muted" type="button" onClick={() => save(DEFAULT_CONSENT)}>Только необходимые</button>
                 <button className="consent-button consent-button-primary" type="button" onClick={() => save(choice)}>Сохранить выбор</button>
               </>
             ) : (
               <>
-                <button className="consent-button consent-button-muted" type="button" onClick={() => save(DEFAULTS)}>Только необходимые</button>
+                <button className="consent-button consent-button-muted" type="button" onClick={() => save(DEFAULT_CONSENT)}>Только необходимые</button>
                 <button className="consent-button consent-button-muted" type="button" onClick={() => setCustomizing(true)}>Настроить</button>
                 <button className="consent-button consent-button-primary" type="button" onClick={() => save({ personalData: true, analyticsCookies: true })}>Принять всё</button>
               </>
             )}
           </div>
-          <p className="consent-footnote">Выбор сохраняется в этом браузере. Серверная фиксация согласия пока не подключена. Изменить выбор можно позже через кнопку PRIVACY. Версия настроек: {POLICY_VERSION}.</p>
+          <p className="consent-footnote">Выбор хранится локально в этом браузере, действует до 180 дней и может быть изменён через PRIVACY. Он не отправляется на сервер. Версия политики: {CONSENT_POLICY_VERSION}.</p>
         </section>
       )}
     </>
