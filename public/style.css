@@ -361,3 +361,5 @@ input, select { width: 100%; background: #0f0f0f; color: var(--text); border: 1p
 }
 
 .consent-error { margin: 12px 0 0; padding: 9px 10px; border: 1px solid #d98b8b70; border-radius: 4px; color: #ffc1c1; background: #7a202018; font-size: 9px; line-height: 1.55; }
+
+.consent-sync-status { position: fixed; z-index: 9998; right: 18px; bottom: 72px; width: min(340px, calc(100vw - 36px)); margin: 0; padding: 10px 12px; border: 1px solid rgba(180, 190, 210, .18); border-radius: 8px; color: rgba(232, 237, 248, .78); background: rgba(10, 13, 22, .88); backdrop-filter: blur(18px); font-size: 10px; line-height: 1.55; box-shadow: 0 12px 34px rgba(0,0,0,.22); }
