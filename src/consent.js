@@ -11,7 +11,8 @@ export function normalizeConsent(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   if (value.version !== CONSENT_POLICY_VERSION) return null;
   if (typeof value.savedAt !== 'string' || !Number.isFinite(Date.parse(value.savedAt))) return null;
-  if (Date.now() - Date.parse(value.savedAt) > 180 * 24 * 60 * 60 * 1000) return null;
+  const age = Date.now() - Date.parse(value.savedAt);
+  if (age < -5 * 60 * 1000 || age > 180 * 24 * 60 * 60 * 1000) return null;
   return {
     personalData: value.personalData === true,
     analyticsCookies: value.analyticsCookies === true,
@@ -20,15 +21,16 @@ export function normalizeConsent(value) {
   };
 }
 
-export function readConsent(storage = globalThis.localStorage) {
+export function readConsent(storage) {
   try {
-    return normalizeConsent(JSON.parse(storage.getItem(CONSENT_STORAGE_KEY) || 'null'));
+    const target = storage || globalThis.localStorage;
+    return normalizeConsent(JSON.parse(target.getItem(CONSENT_STORAGE_KEY) || 'null'));
   } catch {
     return null;
   }
 }
 
-export function hasConsent(category, storage = globalThis.localStorage) {
+export function hasConsent(category, storage) {
   if (!CONSENT_CATEGORIES.includes(category)) return false;
   return readConsent(storage)?.[category] === true;
 }
