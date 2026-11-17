@@ -1,0 +1,62 @@
+name: Sync from friend's repository
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type SYNC to replace project files with the source repository"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-from-friend
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: ${{ inputs.confirm == 'SYNC' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout destination repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Download source repository
+        run: |
+          git clone --depth 1 --branch main https://github.com/suharigram/Mindlarp-site.git /tmp/mindlarp-source
+
+      - name: Copy source files into this repository
+        run: |
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            --include='.env.example' \
+            --exclude='node_modules/' \
+            --exclude='.vercel/' \
+            --exclude='.next/' \
+            --exclude='dist/' \
+            --exclude='build/' \
+            --exclude='coverage/' \
+            --exclude='*.log' \
+            --exclude='.DS_Store' \
+            /tmp/mindlarp-source/ ./
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to sync."
+            exit 0
+          fi
+          git commit -m "Sync source from suharigram/Mindlarp-site"
+          git push origin HEAD:main
+    
