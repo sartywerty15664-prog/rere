@@ -131,7 +131,7 @@ export function ConsentPopup() {
               </>
             ) : (
               <>
-                <button className="consent-button consent-button-muted" type="button" onClick={() => save(DEFAULT_CONSENT)}>Только необходимые</button>
+                <button className="consent-button consent-button-muted" type="button" onClick={() => save(DEFAULT_CONSENT, 'necessary_only')}>Только необходимые</button>
                 <button className="consent-button consent-button-muted" type="button" onClick={() => setCustomizing(true)}>Настроить</button>
                 <button className="consent-button consent-button-primary" type="button" onClick={() => save({ personalData: true, analyticsCookies: true }, 'accept_all')}>Принять всё</button>
               </>
