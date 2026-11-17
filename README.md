@@ -273,10 +273,11 @@ test/                    HTTP and real PostgreSQL integration tests
 The client-side consent manager lives in `src/consent.js`.
 
 - Optional categories are denied by default.
-- Preferences are stored in the current browser's local storage for up to 180 days and are versioned.
-- `readConsent()`, `hasConsent(category)`, and `saveConsent(choice)` are available to client-side features.
+- Preferences are stored in the current browser's local storage for up to 180 days and synchronized to `mindlarp.consent_preferences` in the Supabase-hosted PostgreSQL database.
+- The server stores only the selected categories, decision type, policy version, server timestamp, a random browser ID, and the internal account ID when signed in. It does not store IP addresses or user-agent strings for this record.
+- `readConsent()`, `hasConsent(category)`, `saveConsent(choice)`, and `syncConsentToServer(record)` are available to client-side features.
 - Consent-gated same-origin scripts can be declared with `data-consent-category="analyticsCookies"` and `data-consent-src="/path/to/script.js"`; the loader injects them only after consent.
 - The browser emits `mindlarp:consent-change` when a choice changes. Third-party integrations must use this event to call their provider-specific opt-out/consent APIs and must not assume that unloading a script erases previously collected data.
-- The current site has no analytics provider configured. Consent preferences are local to the browser and are not a server-side audit record.
+- The current site has no analytics provider configured. The server table stores the latest preference per browser; it is not an immutable audit trail or proof of identity.
 
 Do not use the broad `personalData` category as a substitute for a documented purpose and lawful basis. Only connect it to a specific optional feature after the privacy notice explains that feature, its data, purpose, retention, and recipients.
