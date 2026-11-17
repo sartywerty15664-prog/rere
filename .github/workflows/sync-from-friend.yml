@@ -36,8 +36,8 @@ jobs:
             --exclude='.git/' \
             --exclude='.github/' \
             --exclude='.env' \
-            --exclude='.env.*' \
             --include='.env.example' \
+            --exclude='.env.*' \
             --exclude='node_modules/' \
             --exclude='.vercel/' \
             --exclude='.next/' \
@@ -59,4 +59,3 @@ jobs:
           fi
           git commit -m "Sync source from suharigram/Mindlarp-site"
           git push origin HEAD:main
-    
