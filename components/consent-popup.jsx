@@ -7,6 +7,7 @@ import {
   loadConsentedScripts,
   readConsent,
   saveConsent,
+  syncConsentToServer,
 } from '@/src/consent.js';
 
 export function ConsentPopup() {
@@ -15,11 +16,14 @@ export function ConsentPopup() {
   const [customizing, setCustomizing] = useState(false);
   const [choice, setChoice] = useState({ ...DEFAULT_CONSENT });
   const [storageError, setStorageError] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('');
 
   useEffect(() => {
     const saved = readConsent();
-    if (saved) setChoice({ personalData: saved.personalData, analyticsCookies: saved.analyticsCookies });
-    else setVisible(true);
+    if (saved) {
+      setChoice({ personalData: saved.personalData, analyticsCookies: saved.analyticsCookies });
+      syncConsentToServer(saved).catch(() => setSyncStatus('Настройки сохранены в браузере, но не удалось синхронизировать их с сервером. Откройте PRIVACY и сохраните выбор повторно.'));
+    } else setVisible(true);
     setReady(true);
 
     const sync = () => {
@@ -45,14 +49,21 @@ export function ConsentPopup() {
     };
   }, []);
 
-  function save(nextChoice) {
+  async function save(nextChoice, decision) {
     try {
-      saveConsent(nextChoice);
+      const record = saveConsent(nextChoice, { decision });
       setChoice(nextChoice);
       setVisible(false);
       setCustomizing(false);
       setStorageError(false);
+      setSyncStatus('Синхронизируем настройки…');
       loadConsentedScripts();
+      try {
+        await syncConsentToServer(record);
+        setSyncStatus('Настройки конфиденциальности синхронизированы.');
+      } catch {
+        setSyncStatus('Выбор сохранён в браузере, но серверная копия не обновилась. Откройте PRIVACY и повторите сохранение.');
+      }
     } catch {
       setStorageError(true);
     }
@@ -63,12 +74,15 @@ export function ConsentPopup() {
   return (
     <>
       {!visible && (
-        <button className="consent-settings-trigger" type="button" onClick={() => {
-          setCustomizing(true);
-          setVisible(true);
-        }} aria-label="Открыть настройки конфиденциальности">
-          <span aria-hidden="true">◈</span> PRIVACY
-        </button>
+        <>
+          <button className="consent-settings-trigger" type="button" onClick={() => {
+            setCustomizing(true);
+            setVisible(true);
+          }} aria-label="Открыть настройки конфиденциальности">
+            <span aria-hidden="true">◈</span> PRIVACY
+          </button>
+          {syncStatus && <p className="consent-sync-status" role="status" aria-live="polite">{syncStatus}</p>}
+        </>
       )}
       {visible && (
         <section className="consent-popup" role="dialog" aria-modal="false" aria-labelledby="consent-title" aria-describedby="consent-description">
@@ -112,18 +126,18 @@ export function ConsentPopup() {
           <div className="consent-actions">
             {customizing ? (
               <>
-                <button className="consent-button consent-button-muted" type="button" onClick={() => save(DEFAULT_CONSENT)}>Только необходимые</button>
-                <button className="consent-button consent-button-primary" type="button" onClick={() => save(choice)}>Сохранить выбор</button>
+                <button className="consent-button consent-button-muted" type="button" onClick={() => save(DEFAULT_CONSENT, 'necessary_only')}>Только необходимые</button>
+                <button className="consent-button consent-button-primary" type="button" onClick={() => save(choice, 'customized')}>Сохранить выбор</button>
               </>
             ) : (
               <>
                 <button className="consent-button consent-button-muted" type="button" onClick={() => save(DEFAULT_CONSENT)}>Только необходимые</button>
                 <button className="consent-button consent-button-muted" type="button" onClick={() => setCustomizing(true)}>Настроить</button>
-                <button className="consent-button consent-button-primary" type="button" onClick={() => save({ personalData: true, analyticsCookies: true })}>Принять всё</button>
+                <button className="consent-button consent-button-primary" type="button" onClick={() => save({ personalData: true, analyticsCookies: true }, 'accept_all')}>Принять всё</button>
               </>
             )}
           </div>
-          <p className="consent-footnote">Выбор хранится локально в этом браузере, действует до 180 дней и может быть изменён через PRIVACY. Он не отправляется на сервер. Версия политики: {CONSENT_POLICY_VERSION}.</p>
+          <p className="consent-footnote">Выбор хранится в этом браузере и синхронизируется с сервером: сохраняются категории, версия политики, время и случайный ID браузера. При входе запись связывается с аккаунтом. Срок локального выбора — до 180 дней. Версия политики: {CONSENT_POLICY_VERSION}.</p>
         </section>
       )}
     </>
