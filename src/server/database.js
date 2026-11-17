@@ -6,8 +6,11 @@ const { Pool } = pg;
 
 export function createPool(connectionString = process.env.DATABASE_URL) {
   if (!connectionString) throw new Error('DATABASE_URL is required for PostgreSQL.');
+  const databaseSchema = process.env.DATABASE_SCHEMA || 'public';
+  if (!/^[a-z_][a-z0-9_]*$/i.test(databaseSchema)) throw new Error('DATABASE_SCHEMA must be a valid PostgreSQL schema name.');
   return new Pool({
     connectionString,
+    options: `-c search_path=${databaseSchema},public`,
     max: Number(process.env.DATABASE_POOL_SIZE || 10),
     idleTimeoutMillis: 10000,
     connectionTimeoutMillis: 10000,
