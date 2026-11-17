@@ -20,12 +20,11 @@ export async function POST(request) {
   const originError = checkSameOrigin(request);
   if (originError) return originError;
 
-  const contentLength = Number(request.headers.get('content-length') || 0);
-  if (contentLength > 2048) return json({ error: 'Request too large.' }, 413);
-
   let body;
   try {
-    body = await request.json();
+    const rawBody = await request.text();
+    if (rawBody.length > 2048) return json({ error: 'Request too large.' }, 413);
+    body = JSON.parse(rawBody);
   } catch {
     return json({ error: 'Invalid JSON.' }, 400);
   }
@@ -33,7 +32,8 @@ export async function POST(request) {
   if (
     !body ||
     typeof body !== 'object' ||
-    !UUID_PATTERN.test(body.visitorId || '') ||
+    typeof body.visitorId !== 'string' ||
+    !UUID_PATTERN.test(body.visitorId) ||
     body.version !== CONSENT_POLICY_VERSION ||
     typeof body.personalData !== 'boolean' ||
     typeof body.analyticsCookies !== 'boolean' ||
