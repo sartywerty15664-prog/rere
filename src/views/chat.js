@@ -1,0 +1,10 @@
+import { models } from '../content.js';
+import { escapeHtml, icon } from '../html.js';
+import { consoleLayout } from './layout.jsx';
+
+export function chatPage({ user, csrf, messages = [], selectedModel = 'MindLarp-Sol-1-Plus', upstreamConfigured = false }) {
+  const messageHtml = messages.map((message) => `<div class="chat-message ${message.role}"><span class="chat-message-role">${message.role === 'user' ? 'YOU' : 'MINDLARP'}</span><div class="chat-message-content">${escapeHtml(message.content)}</div></div>`).join('');
+  const welcome = `<div class="chat-welcome" id="chat-welcome"><span class="brand-mark"><span></span></span><h2>What are you thinking about?</h2><p>Start with a question, a draft, or a difficult problem.</p><div class="chat-suggestions"><button type="button">Explain a complex idea in simple terms</button><button type="button">Help me improve a piece of writing</button><button type="button">Think through a difficult decision</button><button type="button">Brainstorm ten original ideas</button></div></div>`;
+  const content = `<section class="chat-shell"><header class="chat-header"><div><span class="section-kicker">NEW CONVERSATION</span><h1>MindLarp Chat</h1></div><label class="chat-model">MODEL<select name="model" form="chat-form" id="chat-model">${models.map((model) => `<option value="${model.id}" ${selectedModel === model.id ? 'selected' : ''}>${model.name}</option>`).join('')}</select></label></header><div class="chat-messages" id="chat-messages" aria-live="polite">${messageHtml || welcome}</div><div class="chat-composer"><form id="chat-form"><input type="hidden" name="csrf" value="${csrf}"><textarea name="message" id="chat-input" rows="1" maxlength="16000" required placeholder="Ask MindLarp anything…" aria-label="Message"></textarea><button class="button button-primary" type="submit">Send ${icon('arrow')}</button></form><p>${upstreamConfigured ? 'MindLarp can make mistakes. Check important information.' : 'Chat is ready. Connect MINDLARP_UPSTREAM_URL to enable model responses.'}</p></div></section>`;
+  return consoleLayout({ title: 'Chat', path: '/chat', content, user, csrf });
+}

@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure Bash for npm scripts
+        run: npm config set script-shell /bin/bash
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Check JavaScript syntax
+        run: npm run check
+
+      - name: Validate production configuration
+        run: npm run check:production
+        env:
+          PUBLIC_URL: https://mindlarp.example
+          DATABASE_URL: postgresql://app:ci-password@postgres.example.com:5432/mindlarp
+          DATABASE_SSL: 'true'
+
+      - name: Build and run tests
+        run: npm test
+
+      - name: Run PostgreSQL integration tests
+        run: node --test test/postgres.test.js
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:ci-password@127.0.0.1:5432/postgres
+
+      - name: Build production Docker image
+        run: docker build -t mindlarp-site:ci .
+
+      - name: Smoke test production container
+        run: |
+          docker run --rm -d --name mindlarp-ci \
+            -p 127.0.0.1:3100:3000 \
+            -e NODE_ENV=production \
+            -e PUBLIC_URL=http://127.0.0.1:3100 \
+            -e ALLOW_JSON_PRODUCTION=true \
+            mindlarp-site:ci
+          trap 'docker rm -f mindlarp-ci >/dev/null 2>&1 || true' EXIT
+          for attempt in {1..30}; do
+            if curl -fsS http://127.0.0.1:3100/health >/tmp/mindlarp-health.json; then
+              break
+            fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:3100/health | grep '"database":"json"'
+          curl -fsS -D /tmp/mindlarp-login.headers -o /dev/null http://127.0.0.1:3100/login
+          grep -i '^content-security-policy:' /tmp/mindlarp-login.headers
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3100/assets/login)" = "404"
