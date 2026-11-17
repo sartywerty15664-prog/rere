@@ -15,7 +15,7 @@ CREATE INDEX IF NOT EXISTS consent_preferences_user_id_idx
 ALTER TABLE consent_preferences ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE consent_preferences FROM PUBLIC;
 
-DO $
+DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
     EXECUTE 'REVOKE ALL ON TABLE consent_preferences FROM anon';
@@ -24,4 +24,4 @@ BEGIN
     EXECUTE 'REVOKE ALL ON TABLE consent_preferences FROM authenticated';
   END IF;
 END
-$;
+$$;
