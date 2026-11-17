@@ -114,6 +114,23 @@ export function loadConsentedScripts(documentRef = globalThis.document) {
   const origin = documentRef.location?.origin || globalThis.location?.origin;
   if (!origin) return;
 
+  // Remove managed script elements when their category is no longer allowed.
+  // Removing a script element cannot undo code that has already executed; integrations
+  // must also handle the revocation event and delete any data they control.
+  for (const script of documentRef.querySelectorAll('script[data-consent-managed="true"]')) {
+    const category = script.dataset.consentCategory;
+    if (hasConsent(category)) continue;
+    script.remove();
+    for (const placeholder of documentRef.querySelectorAll('script[data-consent-category][data-consent-src]')) {
+      if (placeholder.dataset.consentCategory === category) placeholder.dataset.consentLoaded = 'false';
+    }
+    try {
+      globalThis.window?.dispatchEvent(new CustomEvent('mindlarp:consent-revoked', { detail: { category } }));
+    } catch {
+      // Revocation remains saved even when custom events are unavailable.
+    }
+  }
+
   for (const placeholder of documentRef.querySelectorAll('script[data-consent-category][data-consent-src]')) {
     const category = placeholder.dataset.consentCategory;
     if (!hasConsent(category) || placeholder.dataset.consentLoaded === 'true') continue;
@@ -129,6 +146,8 @@ export function loadConsentedScripts(documentRef = globalThis.document) {
     const script = documentRef.createElement('script');
     script.src = parsed.href;
     script.async = true;
+    script.dataset.consentManaged = 'true';
+    script.dataset.consentCategory = category;
     if (placeholder.dataset.consentType === 'module') script.type = 'module';
     placeholder.dataset.consentLoaded = 'true';
     placeholder.after(script);
