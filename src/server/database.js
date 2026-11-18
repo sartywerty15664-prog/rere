@@ -4,10 +4,24 @@ import pg from 'pg';
 
 const { Pool } = pg;
 
+function getDatabaseOptions() {
+  const schema = process.env.DATABASE_SCHEMA?.trim();
+  if (!schema) return undefined;
+
+  // PostgreSQL startup options are passed to every pooled connection. Restrict
+  // the value to a simple identifier so it cannot inject additional settings.
+  if (!/^[a-z_][a-z0-9_]*$/.test(schema)) {
+    throw new Error('DATABASE_SCHEMA must be a lowercase PostgreSQL schema name.');
+  }
+
+  return `-c search_path=${schema},public,extensions`;
+}
+
 export function createPool(connectionString = process.env.DATABASE_URL) {
   if (!connectionString) throw new Error('DATABASE_URL is required for PostgreSQL.');
   return new Pool({
     connectionString,
+    options: getDatabaseOptions(),
     max: Number(process.env.DATABASE_POOL_SIZE || 10),
     idleTimeoutMillis: 10000,
     connectionTimeoutMillis: 10000,
