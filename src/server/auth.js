@@ -106,6 +106,7 @@ export async function createPasswordUser({
   displayName,
   email,
   password,
+  personalDataConsent = false,
   onlyIfEmpty = false,
   requireExistingUser = false,
 }) {
@@ -136,6 +137,7 @@ export async function createPasswordUser({
       identities: [],
       passwordSalt: passwordRecord.salt,
       passwordHash: passwordRecord.hash,
+      personalDataConsent: personalDataConsent ? { policyVersion: '2026-11-18', acceptedAt: new Date().toISOString() } : null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
