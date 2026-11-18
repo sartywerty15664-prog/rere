@@ -363,3 +363,12 @@ input, select { width: 100%; background: #0f0f0f; color: var(--text); border: 1p
 .consent-error { margin: 12px 0 0; padding: 9px 10px; border: 1px solid #d98b8b70; border-radius: 4px; color: #ffc1c1; background: #7a202018; font-size: 9px; line-height: 1.55; }
 
 .consent-sync-status { position: fixed; z-index: 9998; right: 18px; bottom: 72px; width: min(340px, calc(100vw - 36px)); margin: 0; padding: 10px 12px; border: 1px solid rgba(180, 190, 210, .18); border-radius: 8px; color: rgba(232, 237, 248, .78); background: rgba(10, 13, 22, .88); backdrop-filter: blur(18px); font-size: 10px; line-height: 1.55; box-shadow: 0 12px 34px rgba(0,0,0,.22); }
+
+/* Social authentication */
+.oauth-divider { display:flex; align-items:center; gap:12px; color:var(--subtle); font:8px var(--mono); margin:23px 0 16px; }
+.oauth-divider::before,.oauth-divider::after { content:''; height:1px; background:var(--line-accent); flex:1; }
+.oauth-consent { margin:0 0 13px; }
+.oauth-buttons { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.oauth-button { display:flex; justify-content:center; align-items:center; gap:9px; min-height:44px; padding:10px 12px; border:1px solid var(--line-accent); border-radius:5px; color:var(--text); font:10px var(--mono); background:var(--panel); cursor:pointer; }
+.oauth-button:hover { background:var(--panel-hover); border-color:#ffffff70; }
+.oauth-button svg { width:16px; height:16px; flex:none; }
