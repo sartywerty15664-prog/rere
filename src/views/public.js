@@ -104,7 +104,7 @@ export function authContent({ mode, error = '', notice = '', values = {} }) {
   const login = mode === 'login';
   const action = `/actions/auth/${mode}`;
   const errors = {
-    consent: 'Please agree to the personal data processing policy before creating an account.',
+    consent: 'To create a new account with Google or GitHub, first agree to the Personal Data Processing Policy.',
     oauth: 'Sign-in with the provider failed. Please try again.',
     'oauth-config': 'This sign-in provider is not configured yet.',
   };
