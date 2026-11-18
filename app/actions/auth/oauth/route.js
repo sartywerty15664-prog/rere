@@ -13,7 +13,7 @@ export async function POST(request) {
   if (!['google', 'github'].includes(provider)) return formRedirect(request, '/login?error=oauth');
   if (body.get('personalDataConsent') !== 'on') return formRedirect(request, '/login?error=consent');
 
-  const oauth = beginOAuth(provider, new URL(request.url).origin, { personalDataConsent: true });
+  const oauth = beginOAuth(provider, process.env.PUBLIC_URL || new URL(request.url).origin, { personalDataConsent: true });
   if (!oauth) return formRedirect(request, '/login?error=oauth-config');
 
   const response = NextResponse.redirect(oauth.authorizationUrl, 303);
