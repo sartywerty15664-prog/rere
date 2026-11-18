@@ -5,7 +5,16 @@ export function publicUrl(fallback = 'http://localhost:3000') {
 }
 
 export function openWebuiUrl() {
-  return (process.env.OPENWEBUI_URL || 'http://localhost:3001').replace(/\/$/, '');
+  const configured = process.env.OPENWEBUI_URL?.trim();
+  if (!configured) return '/chat';
+
+  try {
+    const url = new URL(configured);
+    if (process.env.NODE_ENV === 'production' && ['localhost', '127.0.0.1', '::1'].includes(url.hostname)) return '/chat';
+    return configured.replace(/\/$/, '');
+  } catch {
+    return '/chat';
+  }
 }
 
 export function smtpConfig() {
