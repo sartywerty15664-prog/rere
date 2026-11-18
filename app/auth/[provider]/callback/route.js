@@ -18,7 +18,8 @@ export async function GET(request, { params }) {
     return setSessionCookie(response, session.token);
   } catch (error) {
     console.error(`OAuth ${provider}: ${error.message}`);
-    response.headers.set('Location', new URL('/login?error=oauth', request.url).toString());
+    const errorCode = error.message.includes('Personal data consent') ? 'consent' : 'oauth';
+    response.headers.set('Location', new URL(`/login?error=${errorCode}`, request.url).toString());
     return response;
   }
 }
