@@ -41,7 +41,8 @@ export async function completeOAuth(provider, url, encoded) {
   const clientSecret = provider === 'google' ? process.env.GOOGLE_CLIENT_SECRET : process.env.GITHUB_CLIENT_SECRET;
   if (!clientId || !clientSecret) throw new Error('This sign-in provider is not configured.');
 
-  const redirectUri = `${url.origin}/auth/${provider}/callback`;
+  const redirectBase = (process.env.PUBLIC_URL || url.origin).replace(/\/$/, '');
+  const redirectUri = `${redirectBase}/auth/${provider}/callback`;
   const tokenParams = new URLSearchParams({
     client_id: clientId, client_secret: clientSecret,
     code: url.searchParams.get('code'), redirect_uri: redirectUri
