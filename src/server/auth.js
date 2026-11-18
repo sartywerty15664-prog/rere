@@ -170,9 +170,15 @@ export async function findOrCreateOAuthUser(identity) {
     );
     if (user) return;
 
-    if (data.users.some((item) => normalizeEmail(item.email) === email)) {
-      throw new Error('An account with this email already exists. Sign in with its original authentication method.');
+    const emailUser = data.users.find((item) => normalizeEmail(item.email) === email);
+    if (emailUser) {
+      emailUser.identities ||= [];
+      emailUser.identities.push({ provider: identity.provider, providerId: identity.providerId });
+      emailUser.updatedAt = new Date().toISOString();
+      user = emailUser;
+      return;
     }
+
     if (identity.personalDataConsent !== true) {
       throw new Error('Personal data consent is required to create an account.');
     }
