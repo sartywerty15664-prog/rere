@@ -13,7 +13,7 @@ export default async function Page({ searchParams }) {
   const errors = {
     oauth: 'Social sign-in could not be completed. Try again or use your password.',
     'oauth-config': 'Google or GitHub sign-in is not configured yet.',
-    consent: 'Please agree to the Personal Data Processing Policy before continuing with social sign-in.',
+    consent: 'To create a new account with Google or GitHub, first agree to the Personal Data Processing Policy.',
     credentials: 'Email or password is incorrect.',
     limit: 'Too many attempts. Try again later.',
     google: 'Google sign-in is not configured on this server.',
