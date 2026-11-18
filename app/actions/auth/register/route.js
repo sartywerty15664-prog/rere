@@ -40,6 +40,10 @@ if (originError) return originError;
     displayName
   )}&email=${encodeURIComponent(email)}`;
 
+  if (body.get('personalDataConsent') !== 'on') {
+    return formRedirect(request, `${returnTo}&error=consent`);
+  }
+
   const valid =
     displayName &&
     displayName.length <= 80 &&
@@ -57,6 +61,7 @@ if (originError) return originError;
     displayName,
     email,
     password,
+    personalDataConsent: true,
     requireExistingUser: true,
   });
 
