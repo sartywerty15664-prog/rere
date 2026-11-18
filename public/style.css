@@ -372,3 +372,9 @@ input, select { width: 100%; background: #0f0f0f; color: var(--text); border: 1p
 .oauth-button { display:flex; justify-content:center; align-items:center; gap:9px; min-height:44px; padding:10px 12px; border:1px solid var(--line-accent); border-radius:5px; color:var(--text); font:10px var(--mono); background:var(--panel); cursor:pointer; }
 .oauth-button:hover { background:var(--panel-hover); border-color:#ffffff70; }
 .oauth-button svg { width:16px; height:16px; flex:none; }
+
+
+/* Privacy preferences live in account settings, not as a floating overlay. */
+.consent-settings-trigger { position: static; z-index: auto; left: auto; bottom: auto; display: inline-flex; width: fit-content; max-width: 100%; margin-top: 12px; padding: 10px 13px; color: var(--text); background: #ffffff08; box-shadow: none; cursor: pointer; font-size: 9px; letter-spacing: .02em; }
+.consent-settings-trigger:hover { background: #ffffff12; border-color: var(--accent); }
+.privacy-settings-panel > p { max-width: 680px; color: var(--muted); font-size: 10px; line-height: 1.65; }
