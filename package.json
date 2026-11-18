@@ -12,6 +12,7 @@
     "build": "next build",
     "start": "next start -H ${HOST:-0.0.0.0} -p ${PORT:-3000}",
     "db:up": "docker compose up -d postgres",
+    "openwebui:up": "docker compose up -d openwebui",
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.js",
     "db:import": "node --env-file-if-exists=.env scripts/import-json.js",
     "check:production": "node --env-file-if-exists=.env scripts/check-production.js",

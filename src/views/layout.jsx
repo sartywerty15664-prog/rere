@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import { StaticContent } from '@/components/static-content.jsx';
 import { TrustedController } from '@/components/trusted-controller.jsx';
 import { icon } from '../html.js';
+import { openWebuiUrl } from '../server/config.js';
 
 export const navigation = [
   ['Models', '/models'],
@@ -11,11 +12,11 @@ export const navigation = [
 ];
 
 export const socialLinks = [
-  ['GitHub', 'https://github.com/GonidonCloud'],
-  ['YouTube', 'https://www.youtube.com/@GonidonCloud'],
-  ['Hugging Face', 'https://huggingface.co/GonidonCloud'],
-  ['Telegram', 'https://t.me/GonidonCloud'],
-  ['Discord', 'https://discord.com/invite/gonidoncloud'],
+  ['GitHub', 'https://github.com/ClodLeGrande'],
+  ['YouTube', 'https://www.youtube.com/@ClodLeGrande'],
+  ['Hugging Face', 'https://huggingface.co/ClodLeGrande'],
+  ['Telegram', 'https://t.me/ClodLeGrande'],
+  ['Discord', 'https://discord.com/invite/clodlegrande'],
 ];
 
 export function Icon({ name, className = '' }) {
@@ -35,7 +36,7 @@ export async function publicLayout({ path = '/', content, bodyClass = '' }) {
   const siteUrl = (process.env.PUBLIC_URL || 'https://mindlarp.ai').replace(/\/$/, '');
   const structuredData = JSON.stringify({
     '@context': 'https://schema.org', '@type': 'Organization', name: 'MindLarp', url: siteUrl,
-    logo: `${siteUrl}/assets/logo.png`, parentOrganization: { '@type': 'Organization', name: 'GonidonCloud' },
+    logo: `${siteUrl}/assets/logo.png`, parentOrganization: { '@type': 'Organization', name: 'ClodLeGrande' },
     sameAs: socialLinks.map(([, href]) => href),
   }).replaceAll('<', '\\u003c');
 
@@ -60,10 +61,10 @@ export async function publicLayout({ path = '/', content, bodyClass = '' }) {
         <div><span className="footer-label">/ EXPLORE</span><a href="/models">Models</a><a href="/pricing">Pricing</a><a href="/changelog">Changelog</a></div>
         <div><span className="footer-label">/ DEVELOPERS</span><a href="/docs">Documentation</a><a href="/docs/api-reference">API reference</a><a href="/console">Console</a></div>
         <div><span className="footer-label">/ COMPANY</span><a href="mailto:hello@mindlarp.ai">Contact</a><a href="/legal">Legal &amp; privacy</a><a href="/status">System status</a></div>
-        <div className="footer-system"><span className="footer-label">/ SYSTEM</span><span className="system-status"><span className="status-dot" /> Platform online</span><small>Made by Clod Le Grande</small></div>
+        <div className="footer-system"><span className="footer-label">/ SYSTEM</span><span className="system-status"><span className="status-dot" /> Platform online</span><small>Made by ClodLeGrande</small></div>
       </div>
       <div className="footer-socials" aria-label="Social links">{socialLinks.map(([label, href]) => <a key={label} href={href} target="_blank" rel="noreferrer" aria-label={`MindLarp on ${label}`}>{label} <Icon name="arrow" /></a>)}</div>
-      <div className="footer-bottom"><span>{`© ${new Date().getFullYear()} GonidonCloud`}</span><span>MINDLARP / GONIDONCLOUD</span></div>
+      <div className="footer-bottom"><span>{`© ${new Date().getFullYear()} ClodLeGrande`}</span><span>MINDLARP / CLODLEGRANDE</span></div>
     </footer>
     <script type="application/ld+json" nonce={nonce} dangerouslySetInnerHTML={{ __html: structuredData }} />
     <TrustedController />
@@ -71,7 +72,7 @@ export async function publicLayout({ path = '/', content, bodyClass = '' }) {
 }
 
 export function consoleLayout({ path, content, user, csrf }) {
-  const items = [['/console', 'Overview', 'home'], ['/chat', 'Chat', 'arrow'], ['/console/keys', 'API keys', 'key'], ['/console/usage', 'Usage', 'chart'], ['/console/billing', 'Billing', 'chart'], ['/console/settings', 'Settings', 'settings']];
+  const items = [['/console', 'Overview', 'home'], [openWebuiUrl(), 'Chat', 'arrow'], ['/console/keys', 'API keys', 'key'], ['/console/usage', 'Usage', 'chart'], ['/console/billing', 'Billing', 'chart'], ['/console/settings', 'Settings', 'settings']];
   return <div className="console-page">
     <a className="skip-link" href="#main">Skip to content</a>
     <aside className="console-sidebar">

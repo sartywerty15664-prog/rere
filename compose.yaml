@@ -17,6 +17,25 @@ services:
       retries: 20
       start_period: 10s
 
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    restart: unless-stopped
+    ports:
+      - "${OPENWEBUI_BIND:-127.0.0.1}:${OPENWEBUI_PORT:-3001}:8080"
+    environment:
+      OPENAI_API_BASE_URL: ${OPENWEBUI_API_BASE_URL:-http://host.docker.internal:5173/v1}
+      OPENAI_API_KEY: ${MINDLARP_OPENWEBUI_API_KEY:-}
+      ENABLE_OLLAMA_API: "false"
+      DEFAULT_USER_ROLE: user
+      WEBUI_URL: ${OPENWEBUI_URL:-http://localhost:3001}
+      WEBUI_NAME: MindLarp Chat
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - mindlarp-openwebui:/app/backend/data
+
 volumes:
   mindlarp-postgres:
     name: mindlarp-postgres
+  mindlarp-openwebui:
+    name: mindlarp-openwebui

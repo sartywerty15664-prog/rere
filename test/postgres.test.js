@@ -61,10 +61,10 @@ test('PostgreSQL migrations, production schema verification, writes, refresh, re
   assert.equal(second.data.sessions.length, 0);
   assert.equal(second.data.passwordResets.length, 0);
 
-  const tables = await pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ANY($1)", [['users', 'sessions', 'api_keys', 'usage_events', 'conversations', 'password_resets', 'consent_preferences']]);
-  assert.equal(tables.rowCount, 7);
+  const tables = await pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ANY($1)", [['users', 'sessions', 'api_keys', 'usage_events', 'conversations', 'password_resets']]);
+  assert.equal(tables.rowCount, 6);
   const rls = await pool.query("SELECT count(*)::integer AS count FROM pg_tables WHERE schemaname = 'public' AND rowsecurity = true AND tablename <> 'schema_migrations'");
-  assert.equal(rls.rows[0].count, 7);
+  assert.equal(rls.rows[0].count, 6);
   const legacyShape = await pool.query("SELECT count(*)::integer AS count FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'data' AND data_type = 'jsonb'");
   assert.equal(legacyShape.rows[0].count, 0);
 });

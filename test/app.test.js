@@ -18,6 +18,7 @@ const configurationKeys = [
   'STRIPE_SECRET_KEY', 'STRIPE_PRICE_ID', 'STRIPE_WEBHOOK_SECRET',
   'SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_REQUIRE_TLS', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM',
   'ALLOW_INFERENCE_WITHOUT_SUBSCRIPTION', 'INFERENCE_DAILY_REQUEST_LIMIT', 'ALLOW_HTTP_UPSTREAM',
+  'OPENWEBUI_URL', 'OPENWEBUI_API_BASE_URL', 'OPENWEBUI_PORT', 'MINDLARP_OPENWEBUI_API_KEY',
   'DATABASE_URL', 'DIRECT_URL', 'DATABASE_SSL', 'DATABASE_SSL_REJECT_UNAUTHORIZED', 'DATABASE_POOL_SIZE',
 ];
 
@@ -185,7 +186,7 @@ test('public pages, assets, SEO, trust strip, and health work on Next.js', async
   assert.match(html, /application\/ld\+json/);
   assert.match(response.headers.get('content-security-policy'), /nonce-/);
   assert.match(response.headers.get('content-security-policy'), /strict-dynamic/);
-  assert.match(html, /\u00A9 2026 GonidonCloud/);
+  assert.match(html, /\u00A9 2026 ClodLeGrande/);
   for (const name of ['GitHub', 'YouTube', 'Hugging Face', 'Telegram', 'Discord']) assert.match(html, new RegExp(`aria-label="MindLarp on ${name}"`));
   assert.match(html, /Start chat/);
   assert.match(html, /Trusted by 22M\+ developers/);

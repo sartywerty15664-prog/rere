@@ -16,7 +16,7 @@ function validOrigin(value) {
 function localHttpUrl(value) {
   try {
     const url = new URL(value);
-    return url.protocol === 'http:' && ['localhost', '127.0.0.1', '::1'].includes(url.hostname);
+    return url.protocol === 'http:' && ['localhost', '127.0.0.1', '::1', 'host.docker.internal'].includes(url.hostname);
   } catch {
     return false;
   }
@@ -68,6 +68,18 @@ export function validateProductionConfig(env = process.env) {
     if (env.ALLOW_INFERENCE_WITHOUT_SUBSCRIPTION !== 'true' && stripeValues.some((key) => !env[key])) {
       errors.push('Configure Stripe entitlements or explicitly set ALLOW_INFERENCE_WITHOUT_SUBSCRIPTION=true before enabling inference.');
     }
+  }
+  if (env.OPENWEBUI_URL) {
+    if (!validOrigin(env.OPENWEBUI_URL)) {
+      errors.push('OPENWEBUI_URL must be an absolute HTTP(S) origin without credentials, a path, query, or fragment.');
+    } else if (new URL(env.OPENWEBUI_URL).protocol !== 'https:' && env.ALLOW_HTTP_PUBLIC_URL !== 'true' && !localHttpUrl(env.OPENWEBUI_URL)) {
+      errors.push('OPENWEBUI_URL must use HTTPS in production. Set ALLOW_HTTP_PUBLIC_URL=true only for an isolated local deployment.');
+    }
+  }
+  if (env.OPENWEBUI_API_BASE_URL && !validUrl(env.OPENWEBUI_API_BASE_URL)) {
+    errors.push('OPENWEBUI_API_BASE_URL must be an absolute HTTP(S) URL without embedded credentials.');
+  } else if (env.OPENWEBUI_API_BASE_URL && !localHttpUrl(env.OPENWEBUI_API_BASE_URL) && new URL(env.OPENWEBUI_API_BASE_URL).protocol !== 'https:' && env.ALLOW_HTTP_UPSTREAM !== 'true') {
+    errors.push('OPENWEBUI_API_BASE_URL must use HTTPS. Set ALLOW_HTTP_UPSTREAM=true only for a trusted private network.');
   }
   if (env.SMTP_HOST && env.SMTP_SECURE !== 'true' && env.SMTP_REQUIRE_TLS === 'false' && !['localhost', '127.0.0.1', '::1'].includes(env.SMTP_HOST)) {
     errors.push('SMTP_REQUIRE_TLS=false is allowed only for a local test relay.');

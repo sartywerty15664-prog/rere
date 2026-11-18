@@ -1,6 +1,6 @@
 # MindLarp
 
-The website, documentation, chat, and developer console for the MindLarp model family by GonidonCloud. Built with Next.js 16, React 19, Node.js, PostgreSQL, GSAP, and Lenis. The dark amber, terminal-inspired interface is based on the official Hermes Agent visual language, adapted for a model platform.
+The website, documentation, chat, and developer console for the MindLarp model family by ClodLeGrande. Built with Next.js 16, React 19, Node.js, PostgreSQL, GSAP, and Lenis. The dark amber, terminal-inspired interface is based on the official Hermes Agent visual language, adapted for a model platform.
 
 ## Features
 
@@ -8,6 +8,7 @@ The website, documentation, chat, and developer console for the MindLarp model f
 - English documentation and an OpenAI-compatible API reference.
 - SEO metadata, Open Graph, JSON-LD, `robots.txt`, sitemap, and web manifest.
 - Chat connected to a configurable OpenAI-compatible inference service.
+- Open WebUI chat container wired to the MindLarp API for conversations with the model family.
 - Account registration, returning-user login, logout, and password changes.
 - Google and GitHub OAuth with PKCE where supported.
 - Password recovery over SMTP using single-use, 30-minute tokens.
@@ -93,6 +94,11 @@ Next.js loads configuration from `.env`. The migration commands also read `.env`
 | `ALLOW_INFERENCE_WITHOUT_SUBSCRIPTION` | No | Explicit development/private-deployment bypass for subscription checks. In production, either leave this unset and configure Stripe or set it deliberately for a trusted non-billing deployment. |
 | `INFERENCE_DAILY_REQUEST_LIMIT` | For production inference | Positive account-level daily request quota shared by API keys and chat; production validation requires it whenever inference is enabled. |
 | `ALLOW_HTTP_UPSTREAM` | No | Explicitly allow a non-local HTTP upstream only on a trusted private network. HTTPS is required otherwise. |
+| `MINDLARP_OPENWEBUI_API_KEY` | For Open WebUI | MindLarp API key with `models:read` and `inference:write` scopes used by the Open WebUI container. |
+| `OPENWEBUI_PORT` | No | Local host port for Open WebUI; defaults to `3001`. |
+| `OPENWEBUI_BIND` | No | Bind address for the Open WebUI port; defaults to `127.0.0.1`. Set `0.0.0.0` only for direct exposure or a TLS proxy on another interface. |
+| `OPENWEBUI_API_BASE_URL` | No | MindLarp API base URL as seen from the Open WebUI container; defaults to `http://host.docker.internal:5173/v1`. |
+| `OPENWEBUI_URL` | No | Public origin of Open WebUI used by the console Chat button and the container; defaults to `http://localhost:3001`. HTTPS is required in production. |
 | `GOOGLE_CLIENT_ID` | For Google login | Google OAuth client ID. |
 | `GOOGLE_CLIENT_SECRET` | For Google login | Google OAuth client secret. |
 | `GITHUB_CLIENT_ID` | For GitHub login | GitHub OAuth client ID. |
@@ -177,6 +183,90 @@ curl http://localhost:5173/v1/chat/completions \
   -d '{"model":"MindLarp-Sol-1-Plus","messages":[{"role":"user","content":"Hello"}]}'
 ```
 
+## Open WebUI
+
+Open WebUI is a full-featured chat interface for the MindLarp models. It runs as a Docker container and talks to this application's OpenAI-compatible API, so conversations use the same scoped keys, quotas, and usage tracking as any other client.
+
+1. Start the site (`npm run dev`) and sign in to the console.
+2. Create an API key at `/console/keys` with the `models:read` and `inference:write` scopes.
+3. Paste the secret into `.env`:
+
+```dotenv
+MINDLARP_OPENWEBUI_API_KEY=ml_sk_live_your_key
+```
+
+4. Start the container and open [http://localhost:3001](http://localhost:3001):
+
+```bash
+npm run openwebui:up
+```
+
+The first account created in Open WebUI becomes its admin. Both MindLarp models appear in the model picker automatically, and Open WebUI data persists in the named `mindlarp-openwebui` Docker volume. The console **Chat** button links to `OPENWEBUI_URL` (default `http://localhost:3001`).
+
+The container reaches the site through `host.docker.internal` (`OPENWEBUI_API_BASE_URL`, default `http://host.docker.internal:5173/v1`). Point it at your deployed HTTPS origin when the site is not running locally. Model responses also require `MINDLARP_UPSTREAM_URL` on the site and either an active subscription or `ALLOW_INFERENCE_WITHOUT_SUBSCRIPTION=true`; without an upstream, Open WebUI surfaces the API's `503 inference_not_configured` error.
+
+### Open WebUI in production
+
+By default the container binds to `127.0.0.1:${OPENWEBUI_PORT:-3001}` (`OPENWEBUI_BIND`), so it is reachable only from the host. The recommended public setup is a TLS-terminating reverse proxy on the same host; set the public origin so the console Chat button and Open WebUI itself use the right URL:
+
+```dotenv
+OPENWEBUI_URL=https://chat.example.com
+# MindLarp API reachable from the container: the public HTTPS origin, or the
+# co-located site via http://host.docker.internal:3000/v1 (treated as private).
+# Other private HTTP origins need ALLOW_HTTP_UPSTREAM=true.
+OPENWEBUI_API_BASE_URL=https://mindlarp.ai/v1
+MINDLARP_OPENWEBUI_API_KEY=ml_sk_live_key_created_on_the_production_console
+```
+
+`check:production` rejects non-HTTPS `OPENWEBUI_URL` values (unless local or explicitly overridden) and validates `OPENWEBUI_API_BASE_URL` like any other upstream. Create the API key on the production console; development keys do not exist there.
+
+Caddy handles the WebSocket upgrade automatically:
+
+```caddyfile
+chat.example.com {
+  reverse_proxy 127.0.0.1:3001
+}
+```
+
+For nginx, forward the upgrade headers and keep long-lived streaming connections open:
+
+```nginx
+server {
+  listen 443 ssl;
+  server_name chat.example.com;
+  # ssl_certificate / ssl_certificate_key ...
+
+  location / {
+    proxy_pass http://127.0.0.1:3001;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+  }
+}
+```
+
+Open WebUI keeps its own accounts and chat history in the `mindlarp-openwebui` volume; back it up like any other stateful service. MindLarp API quotas, key scopes, and subscription entitlements still apply to every request it makes.
+
+### Direct exposure without a proxy (testing only)
+
+To publish the container port directly, bind it to all interfaces and open the port in the host firewall and any cloud security group:
+
+```dotenv
+OPENWEBUI_BIND=0.0.0.0
+OPENWEBUI_URL=http://your-server-ip:3001
+```
+
+Then run `npm run openwebui:up` and allow inbound TCP `3001` (for example `ufw allow 3001/tcp`). The instance is reachable at `http://your-server-ip:3001`.
+
+This serves plain HTTP: passwords and chat traffic are unencrypted, so use it only for short tests on a trusted network, never for real users. Create the admin account **before** exposing the port — the first visitor to an unclaimed instance becomes its admin — and disable further signups afterwards in Admin Panel → Settings. For anything permanent, use the TLS reverse proxy above instead.
+
+Signup and role settings persist in the Open WebUI database after first launch and override environment values; manage them in Admin Panel → Settings. The compose file sets `DEFAULT_USER_ROLE: user` so newly registered visitors can chat without manual approval.
+
 ## Google and GitHub login
 
 Create separate OAuth applications with these callback URLs, replacing the origin with `PUBLIC_URL`:
@@ -248,7 +338,7 @@ src/server/store.js      PostgreSQL selection and JSON fallback
 src/store.js             Atomic JSON development store
 src/views/               Page templates and layouts
 public/                  Hermes-inspired styles, scripts, icons, and manifest
-compose.yaml             Local Supabase PostgreSQL container and persistent volume
+compose.yaml             Local Supabase PostgreSQL and Open WebUI containers with persistent volumes
 proxy.js                 Security headers and CSP nonces
 test/                    HTTP and real PostgreSQL integration tests
 ```
@@ -259,6 +349,7 @@ test/                    HTTP and real PostgreSQL integration tests
 - Serve through HTTPS and set `NODE_ENV=production` and the correct origin-only `PUBLIC_URL`.
 - Keep secrets in a deployment secret manager; never commit `.env` or publish a `.next/standalone` directory built on a workstation.
 - Put Node.js behind a reverse proxy with request limits and timeouts. The proxy must terminate public access to direct Node/PostgreSQL ports and overwrite client-supplied `X-Real-IP`/`X-Forwarded-For` before `TRUST_PROXY=true` is enabled.
+- To publish Open WebUI, keep the default loopback binding and front it with a TLS reverse proxy that supports WebSocket upgrades; set `OPENWEBUI_URL`, `OPENWEBUI_API_BASE_URL`, and a production-console API key. Direct `0.0.0.0` exposure is plain HTTP and for testing only (see Open WebUI in production).
 - Add a shared Redis/PostgreSQL-backed rate limiter before horizontal or high-risk public launch. The built-in limiter is process-local and is only a single-instance safeguard.
 - Treat PostgreSQL scaling as a launch gate: the current store refreshes and serializes broad application state. Run a realistic load test and keep one application replica until the data path is refactored into targeted SQL queries.
 - Create the owner through `/setup` before opening traffic. Decide whether public registration is allowed and add invitation/workspace authorization controls for a closed launch.
@@ -266,18 +357,3 @@ test/                    HTTP and real PostgreSQL integration tests
 - Define chat/usage retention and deletion policies and review the placeholder legal page.
 - Review all model, price, status, trusted-company, and social-link content before launch.
 - Test OAuth callbacks, SMTP delivery, live-mode Stripe webhooks, provider errors, and Docker/container smoke checks on the public domain before accepting users.
-
-
-## Privacy consent integration
-
-The client-side consent manager lives in `src/consent.js`.
-
-- Optional categories are denied by default.
-- Preferences are stored in the current browser's local storage for up to 180 days and synchronized to `mindlarp.consent_preferences` in the Supabase-hosted PostgreSQL database.
-- The server stores only the selected categories, decision type, policy version, server timestamp, a random browser ID, and the internal account ID when signed in. It does not store IP addresses or user-agent strings for this record.
-- `readConsent()`, `hasConsent(category)`, `saveConsent(choice)`, and `syncConsentToServer(record)` are available to client-side features.
-- Consent-gated same-origin scripts can be declared with `data-consent-category="analyticsCookies"` and `data-consent-src="/path/to/script.js"`; the loader injects them only after consent.
-- The browser emits `mindlarp:consent-change` when a choice changes. Third-party integrations must use this event to call their provider-specific opt-out/consent APIs and must not assume that unloading a script erases previously collected data.
-- The current site has no analytics provider configured. The server table stores the latest preference per browser; it is not an immutable audit trail or proof of identity.
-
-Do not use the broad `personalData` category as a substitute for a documented purpose and lawful basis. Only connect it to a specific optional feature after the privacy notice explains that feature, its data, purpose, retention, and recipients.

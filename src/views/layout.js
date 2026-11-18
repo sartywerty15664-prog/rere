@@ -1,4 +1,5 @@
 import { escapeHtml, icon } from '../html.js';
+import { openWebuiUrl } from '../server/config.js';
 
 const navigation = [
   ['Models', '/models'],
@@ -8,11 +9,11 @@ const navigation = [
 ];
 
 const socialLinks = [
-  ['GitHub', 'https://github.com/GonidonCloud'],
-  ['YouTube', 'https://www.youtube.com/@GonidonCloud'],
-  ['Hugging Face', 'https://huggingface.co/GonidonCloud'],
-  ['Telegram', 'https://t.me/GonidonCloud'],
-  ['Discord', 'https://discord.com/invite/gonidoncloud'],
+  ['GitHub', 'https://github.com/ClodLeGrande'],
+  ['YouTube', 'https://www.youtube.com/@ClodLeGrande'],
+  ['Hugging Face', 'https://huggingface.co/ClodLeGrande'],
+  ['Telegram', 'https://t.me/ClodLeGrande'],
+  ['Discord', 'https://discord.com/invite/clodlegrande'],
 ];
 
 export function brand() {
@@ -30,7 +31,7 @@ export function publicLayout({ title, description = 'A family of AI models for c
   const socials = socialLinks.map(([label, href]) => `<a href="${href}" target="_blank" rel="noreferrer" aria-label="MindLarp on ${label}">${label} ${icon('arrow')}</a>`).join('');
   const structuredData = JSON.stringify({
     '@context': 'https://schema.org', '@type': 'Organization', name: 'MindLarp', url: siteUrl,
-    logo: `${siteUrl}/assets/logo.png`, parentOrganization: { '@type': 'Organization', name: 'GonidonCloud' },
+    logo: `${siteUrl}/assets/logo.png`, parentOrganization: { '@type': 'Organization', name: 'ClodLeGrande' },
     sameAs: socialLinks.map(([, href]) => href),
   });
 
@@ -77,10 +78,10 @@ export function publicLayout({ title, description = 'A family of AI models for c
       <div><span class="footer-label">/ EXPLORE</span><a href="/models">Models</a><a href="/pricing">Pricing</a><a href="/changelog">Changelog</a></div>
       <div><span class="footer-label">/ DEVELOPERS</span><a href="/docs">Documentation</a><a href="/docs/api-reference">API reference</a><a href="/console">Console</a></div>
       <div><span class="footer-label">/ COMPANY</span><a href="mailto:hello@mindlarp.ai">Contact</a><a href="/legal">Legal & privacy</a><a href="/status">System status</a></div>
-      <div class="footer-system"><span class="footer-label">/ SYSTEM</span><span class="system-status"><span class="status-dot"></span> Platform online</span><small>Made by Clod Le Grande</small></div>
+      <div class="footer-system"><span class="footer-label">/ SYSTEM</span><span class="system-status"><span class="status-dot"></span> Platform online</span><small>Made by ClodLeGrande</small></div>
     </div>
     <div class="footer-socials" aria-label="Social links">${socials}</div>
-    <div class="footer-bottom"><span>© ${new Date().getFullYear()} GonidonCloud</span><span>MINDLARP / GONIDONCLOUD</span></div>
+    <div class="footer-bottom"><span>© ${new Date().getFullYear()} ClodLeGrande</span><span>MINDLARP / CLODLEGRANDE</span></div>
   </footer>
 </body>
 </html>`;
@@ -89,7 +90,7 @@ export function publicLayout({ title, description = 'A family of AI models for c
 export function consoleLayout({ title, path, content, user, csrf, nonce = '' }) {
   const items = [
     ['/console', 'Overview', 'home'],
-    ['/chat', 'Chat', 'arrow'],
+    [openWebuiUrl(), 'Chat', 'arrow'],
     ['/console/keys', 'API keys', 'key'],
     ['/console/usage', 'Usage', 'chart'],
     ['/console/billing', 'Billing', 'chart'],

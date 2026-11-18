@@ -4,20 +4,10 @@ import pg from 'pg';
 
 const { Pool } = pg;
 
-function getDatabaseSchema() {
-  const schema = process.env.DATABASE_SCHEMA || 'public';
-  if (!/^[a-z_][a-z0-9_]*$/.test(schema)) {
-    throw new Error('DATABASE_SCHEMA must be a valid PostgreSQL schema identifier.');
-  }
-  return schema;
-}
-
 export function createPool(connectionString = process.env.DATABASE_URL) {
   if (!connectionString) throw new Error('DATABASE_URL is required for PostgreSQL.');
-  const schema = getDatabaseSchema();
   return new Pool({
     connectionString,
-    options: schema === 'public' ? undefined : `-c search_path=${schema},public`,
     max: Number(process.env.DATABASE_POOL_SIZE || 10),
     idleTimeoutMillis: 10000,
     connectionTimeoutMillis: 10000,

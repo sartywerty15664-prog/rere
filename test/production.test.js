@@ -70,3 +70,16 @@ test('database pool and timeout settings are bounded', () => {
   }
   assert.match(validationErrors({ DATABASE_POOL_SIZE: '0' }).join('\n'), /DATABASE_POOL_SIZE/);
 });
+
+test('Open WebUI URLs follow the public HTTPS and private upstream rules', () => {
+  assert.match(validationErrors({ OPENWEBUI_URL: 'http://chat.example.com' }).join('\n'), /OPENWEBUI_URL must use HTTPS/);
+  assert.match(validationErrors({ OPENWEBUI_URL: 'https://chat.example.com/base' }).join('\n'), /OPENWEBUI_URL must be an absolute HTTP\(S\) origin/);
+  assert.deepEqual(validationErrors({ OPENWEBUI_URL: 'https://chat.example.com' }), []);
+  assert.deepEqual(validationErrors({ OPENWEBUI_URL: 'http://localhost:3001' }), []);
+  assert.deepEqual(validationErrors({ OPENWEBUI_URL: 'http://chat.example.com', ALLOW_HTTP_PUBLIC_URL: 'true' }), []);
+  assert.match(validationErrors({ OPENWEBUI_API_BASE_URL: 'http://mindlarp.example/v1' }).join('\n'), /OPENWEBUI_API_BASE_URL must use HTTPS/);
+  assert.match(validationErrors({ OPENWEBUI_API_BASE_URL: 'not-a-url' }).join('\n'), /OPENWEBUI_API_BASE_URL must be an absolute HTTP\(S\) URL/);
+  assert.deepEqual(validationErrors({ OPENWEBUI_API_BASE_URL: 'https://mindlarp.ai/v1' }), []);
+  assert.deepEqual(validationErrors({ OPENWEBUI_API_BASE_URL: 'http://host.docker.internal:3000/v1' }), []);
+  assert.deepEqual(validationErrors({ OPENWEBUI_API_BASE_URL: 'http://mindlarp.example/v1', ALLOW_HTTP_UPSTREAM: 'true' }), []);
+});

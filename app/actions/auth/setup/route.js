@@ -29,10 +29,6 @@ if (originError) return originError;
   const email = normalizeEmail(body.get('email'));
   const password = body.get('password');
 
-  if (body.get('personalDataConsent') !== 'on') {
-    return formRedirect(request, '/setup?error=consent');
-  }
-
   const valid =
     displayName &&
     displayName.length <= 80 &&
@@ -50,7 +46,6 @@ if (originError) return originError;
     displayName,
     email,
     password,
-    personalDataConsent: true,
     onlyIfEmpty: true,
   });
 
