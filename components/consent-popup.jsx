@@ -39,13 +39,22 @@ export function ConsentPopup() {
     const onStorage = (event) => {
       if (event.key === 'mindlarp.consent.v2') sync();
     };
+    const openPreferences = () => {
+      setCustomizing(true);
+      setVisible(true);
+    };
+    const onSettingsClick = (event) => {
+      if (event.target.closest('[data-open-consent-settings]')) openPreferences();
+    };
     window.addEventListener('storage', onStorage);
     window.addEventListener('mindlarp:consent-change', sync);
+    document.addEventListener('click', onSettingsClick);
     loadConsentedScripts();
 
     return () => {
       window.removeEventListener('storage', onStorage);
       window.removeEventListener('mindlarp:consent-change', sync);
+      document.removeEventListener('click', onSettingsClick);
     };
   }, []);
 
@@ -73,17 +82,7 @@ export function ConsentPopup() {
 
   return (
     <>
-      {!visible && (
-        <>
-          <button className="consent-settings-trigger" type="button" onClick={() => {
-            setCustomizing(true);
-            setVisible(true);
-          }} aria-label="Открыть настройки конфиденциальности">
-            <span aria-hidden="true">◈</span> PRIVACY
-          </button>
-          {syncStatus && <p className="consent-sync-status" role="status" aria-live="polite">{syncStatus}</p>}
-        </>
-      )}
+      {!visible && syncStatus && <p className="consent-sync-status" role="status" aria-live="polite">{syncStatus}</p>}
       {visible && (
         <section className="consent-popup" role="dialog" aria-modal="false" aria-labelledby="consent-title" aria-describedby="consent-description">
           <div className="consent-popup-topline">
