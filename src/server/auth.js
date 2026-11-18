@@ -155,3 +155,38 @@ export {
   safeEqual,
   verifyPassword,
 };
+
+export async function findOrCreateOAuthUser(identity) {
+  const store = await getStore();
+  const email = normalizeEmail(identity.email);
+  const displayName = String(identity.displayName || email.split('@')[0]).slice(0, 80);
+  let user = null;
+
+  await store.update((data) => {
+    user = data.users.find((item) =>
+      item.identities?.some((linked) =>
+        linked.provider === identity.provider && linked.providerId === identity.providerId
+      )
+    );
+    if (user) return;
+
+    if (data.users.some((item) => normalizeEmail(item.email) === email)) {
+      throw new Error('An account with this email already exists. Sign in with its original authentication method.');
+    }
+    if (identity.personalDataConsent !== true) {
+      throw new Error('Personal data consent is required to create an account.');
+    }
+
+    const now = new Date().toISOString();
+    user = {
+      id: randomUUID(), displayName, email,
+      role: data.users.length > 0 ? 'member' : 'owner',
+      identities: [{ provider: identity.provider, providerId: identity.providerId }],
+      passwordSalt: null, passwordHash: null,
+      personalDataConsent: { policyVersion: '2026-11-18', acceptedAt: now },
+      createdAt: now, updatedAt: now,
+    };
+    data.users.push(user);
+  });
+  return user;
+}
