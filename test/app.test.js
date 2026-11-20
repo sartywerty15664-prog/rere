@@ -220,42 +220,25 @@ test('owner setup validates input and establishes a persistent session', async (
   assert.equal((await fetch(`${origin}/setup`, { redirect: 'manual' })).headers.get('location'), '/login');
 });
 
-test('auth routes reject cross-origin requests without changing account data', async (t) => {
+test('email/password login, registration, and recovery endpoints are disabled without changing account data', async (t) => {
   const { origin, readData } = await startApp(t);
   const cookie = await setupOwner(origin);
 
-  const requests = [
-    ['/actions/auth/login', {
-      email: 'ada@example.com',
-      password,
-    }],
-    ['/actions/auth/register', {
-      displayName: 'Grace Hopper',
-      email: 'grace@example.com',
-      password: 'another-good-password',
-      confirmPassword: 'another-good-password',
-    }],
-    ['/actions/auth/forgot-password', {
-      email: 'ada@example.com',
-    }],
+  const disabledRequests = [
+    ['/actions/auth/login', { email: 'ada@example.com', password }],
+    ['/actions/auth/register', { displayName: 'Grace Hopper', email: 'grace@example.com', password, confirmPassword: password }],
+    ['/actions/auth/forgot-password', { email: 'ada@example.com' }],
+    ['/actions/auth/reset-password', { token: 'not-a-real-token', password, confirmPassword: password }],
   ];
 
-  for (const [path, body] of requests) {
-    const response = await post(
-      origin,
-      path,
-      body,
-      cookie,
-      'https://evil.example'
-    );
-
-    assert.equal(response.status, 403, path);
+  for (const [path, body] of disabledRequests) {
+    const response = await post(origin, path, body, cookie, 'https://evil.example');
+    assert.equal(response.status, 410, path);
   }
 
   assert.equal((await readData()).users.length, 1);
 
   const emptyApp = await startApp(t);
-
   const setupResponse = await post(
     emptyApp.origin,
     '/actions/auth/setup',
@@ -371,35 +354,31 @@ test('chat persists real upstream answers and billing setup reports missing Stri
   assert.equal((await post(origin, '/webhooks/stripe', {})).status, 503);
 });
 
-test('registration, password changes, logout, and returning-user login work', async (t) => {
+test('email/password login and registration remain disabled while logout works', async (t) => {
   const { origin, readData } = await startApp(t);
   const cookie = await setupOwner(origin);
-  let response = await post(origin, '/actions/auth/register', { displayName: 'Grace Hopper', email: 'grace@example.com', password: 'another-good-password', confirmPassword: 'another-good-password' });
-  assert.equal(response.status, 303);
-  const memberCookie = response.headers.get('set-cookie').split(';')[0];
-  let data = await readData();
-  assert.equal(data.users.length, 2);
-  assert.equal(data.users[1].role, 'member');
-  assert.equal((await fetch(`${origin}/console`, { headers: { Cookie: memberCookie } })).status, 200);
-  response = await post(origin, '/actions/auth/register', { displayName: 'Duplicate', email: 'grace@example.com', password: 'another-good-password', confirmPassword: 'another-good-password' });
-  assert.equal(response.headers.get('location').includes('error=exists'), true);
+
+  assert.equal((await post(origin, '/actions/auth/register', {
+    displayName: 'Grace Hopper',
+    email: 'grace@example.com',
+    password,
+    confirmPassword: password,
+  })).status, 410);
+  assert.equal((await post(origin, '/actions/auth/login', {
+    email: 'ada@example.com',
+    password,
+  })).status, 410);
+  assert.equal((await readData()).users.length, 1);
+
   const consoleHtml = await (await fetch(`${origin}/console`, { headers: { Cookie: cookie } })).text();
   const csrf = consoleHtml.match(/name="csrf" value="([^"]+)"/)[1];
-  response = await post(origin, '/console/settings/password', { currentPassword: password, newPassword: 'a-new-good-password', confirmPassword: 'a-new-good-password', csrf }, cookie);
-  assert.equal(response.status, 303);
-  response = await post(origin, '/console/logout', { csrf }, cookie);
-  assert.equal(response.status, 303);
-  assert.equal((await fetch(`${origin}/console`, { headers: { Cookie: cookie }, redirect: 'manual' })).headers.get('location'), '/login');
-  response = await post(origin, '/actions/auth/login', { email: 'ada@example.com', password });
-  assert.equal(response.status, 303);
-  assert.match(response.headers.get('location'), /error=credentials/);
-  response = await post(origin, '/actions/auth/login', { email: 'grace@example.com', password: 'another-good-password' });
-  assert.equal(response.status, 303);
-  response = await post(origin, '/actions/auth/login', { email: 'ada@example.com', password: 'a-new-good-password' });
-  assert.equal(response.status, 303);
-  assert.equal((await fetch(`${origin}/console`, { headers: { Cookie: response.headers.get('set-cookie').split(';')[0] } })).status, 200);
-  data = await readData();
-  assert.equal(data.users.length, 2);
+  const logout = await post(origin, '/console/logout', { csrf }, cookie);
+  assert.equal(logout.status, 303);
+  assert.equal((await fetch(`${origin}/console`, {
+    headers: { Cookie: cookie },
+    redirect: 'manual',
+  })).headers.get('location'), '/login');
+  assert.equal((await readData()).users.length, 1);
 });
 
 test('Google and GitHub OAuth report missing configuration or redirect with protected state', async (t) => {
@@ -540,87 +519,28 @@ test('signed Stripe webhook updates billing and rejects an invalid signature', a
   assert.equal(response.status, 400);
 });
 
-test('password recovery reports missing SMTP without pretending to send email', async (t) => {
-  const { origin } = await startApp(t);
-  await setupOwner(origin);
-  assert.equal((await fetch(`${origin}/forgot-password`)).status, 200);
-  const response = await post(origin, '/actions/auth/forgot-password', { email: 'ada@example.com' });
-  assert.equal(response.status, 303);
-  const page = await (await fetch(`${origin}${response.headers.get('location')}`)).text();
-  assert.match(page, /Password recovery is not configured/);
-});
+test('password recovery and reset pages redirect to OAuth sign-in', async (t) => {
+  const { origin, readData } = await startApp(t);
+  const cookie = await setupOwner(origin);
 
-test('SMTP recovery uses a hashed one-time token, revokes sessions, and permits the new login', async (t) => {
-  const messages = [];
-  const smtp = createTcpServer((socket) => {
-    let buffer = '';
-    let receiving = false;
-    let message = '';
-    socket.setEncoding('utf8');
-    socket.write('220 localhost ESMTP\r\n');
-    socket.on('data', (chunk) => {
-      buffer += chunk;
-      if (receiving) {
-        const end = buffer.indexOf('\r\n.\r\n');
-        if (end === -1) return;
-        message += buffer.slice(0, end);
-        messages.push(message.replace(/=\r?\n/g, '').replace(/=3D/g, '='));
-        buffer = buffer.slice(end + 5);
-        receiving = false;
-        message = '';
-        socket.write('250 Accepted\r\n');
-      }
-      let newline;
-      while (!receiving && (newline = buffer.indexOf('\r\n')) !== -1) {
-        const line = buffer.slice(0, newline);
-        buffer = buffer.slice(newline + 2);
-        const command = line.split(' ')[0].toUpperCase();
-        if (command === 'EHLO') socket.write('250-localhost\r\n250 SMTPUTF8\r\n');
-        else if (command === 'DATA') { receiving = true; socket.write('354 End data with <CR><LF>.<CR><LF>\r\n'); }
-        else if (command === 'QUIT') { socket.write('221 Bye\r\n'); socket.end(); }
-        else socket.write('250 OK\r\n');
-      }
-    });
-  });
-  const port = await listen(smtp);
-  t.after(() => close(smtp));
-  const { origin, readData } = await startApp(t, { env: { SMTP_HOST: '127.0.0.1', SMTP_PORT: port, SMTP_REQUIRE_TLS: 'false', SMTP_FROM: 'MindLarp <no-reply@example.com>' } });
-  const oldCookie = await setupOwner(origin);
-  let response = await post(origin, '/actions/auth/forgot-password', { email: 'unknown@example.com' });
-  assert.equal(response.headers.get('location'), '/forgot-password?sent=1');
-  assert.equal(messages.length, 0);
-  response = await post(origin, '/actions/auth/forgot-password', { email: ' ADA@EXAMPLE.COM ' });
-  assert.equal(response.status, 303);
-  assert.equal(messages.length, 1);
-  assert.match(messages[0], /ada@example.com/);
-  const token = messages[0].match(/reset-password\?token=([A-Za-z0-9_-]+)/)?.[1];
-  assert.ok(token);
-  let data = await readData();
-  assert.equal(JSON.stringify(data).includes(token), false);
-  assert.equal(data.passwordResets.length, 1);
-  assert.match(data.passwordResets[0].tokenHash, /^[a-f0-9]{64}$/);
-  assert.equal((await fetch(`${origin}/reset-password?token=${token}`)).status, 200);
-  response = await post(origin, '/actions/auth/reset-password', { token, password: 'a-reset-good-password', confirmPassword: 'not-the-same-password' });
-  assert.match(response.headers.get('location'), /error=invalid/);
-  const resetAttempts = await Promise.all([
-    post(origin, '/actions/auth/reset-password', { token, password: 'a-reset-good-password', confirmPassword: 'a-reset-good-password' }),
-    post(origin, '/actions/auth/reset-password', { token, password: 'a-competing-reset-password', confirmPassword: 'a-competing-reset-password' }),
-  ]);
-  const successfulReset = resetAttempts.find((attempt) => attempt.headers.get('location') === '/login?reset=success');
-  assert.ok(successfulReset);
-  assert.equal(resetAttempts.filter((attempt) => attempt.headers.get('location') === '/login?reset=success').length, 1);
-  assert.equal(resetAttempts.filter((attempt) => attempt.headers.get('location')?.includes('error=invalid')).length, 1);
-  const winningPassword = resetAttempts.indexOf(successfulReset) === 0 ? 'a-reset-good-password' : 'a-competing-reset-password';
-  data = await readData();
+  for (const path of ['/forgot-password', '/reset-password']) {
+    const response = await fetch(`${origin}${path}`, { redirect: 'manual' });
+    assert.equal(response.status, 307, path);
+    assert.equal(response.headers.get('location'), '/login', path);
+  }
+
+  assert.equal((await post(origin, '/actions/auth/forgot-password', { email: 'ada@example.com' })).status, 410);
+  assert.equal((await post(origin, '/actions/auth/reset-password', {
+    token: 'not-a-real-token',
+    password,
+    confirmPassword: password,
+  })).status, 410);
+
+  const data = await readData();
+  assert.equal(data.users.length, 1);
   assert.equal(data.passwordResets.length, 0);
-  assert.equal(data.sessions.length, 0);
-  assert.equal((await fetch(`${origin}/console`, { headers: { Cookie: oldCookie }, redirect: 'manual' })).headers.get('location'), '/login');
-  assert.match((await post(origin, '/actions/auth/login', { email: 'ada@example.com', password })).headers.get('location'), /error=credentials/);
-  response = await post(origin, '/actions/auth/login', { email: 'ada@example.com', password: winningPassword });
-  assert.equal(response.status, 303);
-  assert.match(response.headers.get('set-cookie'), /^ml_session=/);
-  assert.match((await post(origin, '/actions/auth/reset-password', { token, password: 'another-reset-password', confirmPassword: 'another-reset-password' })).headers.get('location'), /error=invalid/);
-  assert.match(await (await fetch(`${origin}/login?reset=success`)).text(), /Password updated\. Sign in with your new password\./);
+  assert.equal(data.sessions.length, 1);
+  assert.equal((await fetch(`${origin}/console`, { headers: { Cookie: cookie } })).status, 200);
 });
 
 test('OAuth never attaches a verified identity to an existing password account by email alone', async (t) => {
@@ -744,6 +664,23 @@ test('upstream errors and oversized responses are bounded and do not leak provid
     assert.equal(result.error.code, message === 'oversize' ? 'upstream_response_too_large' : 'upstream_request_failed');
     assert.doesNotMatch(JSON.stringify(result), /provider-secret-diagnostic/);
   }
+});
+
+test('repeated password-login requests cannot bypass the OAuth-only sign-in policy', async (t) => {
+  const { origin, readData } = await startApp(t);
+  await setupOwner(origin);
+
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const response = await post(origin, '/actions/auth/login', {
+      email: 'ada@example.com',
+      password,
+    });
+    assert.equal(response.status, 410);
+  }
+
+  const data = await readData();
+  assert.equal(data.users.length, 1);
+  assert.equal(data.sessions.length, 1);
 });
 
 test('login rate limits are isolated by account and success cannot clear another account limit', async (t) => {
