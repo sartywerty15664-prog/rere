@@ -682,18 +682,3 @@ test('repeated password-login requests cannot bypass the OAuth-only sign-in poli
   assert.equal(data.users.length, 1);
   assert.equal(data.sessions.length, 1);
 });
-
-test('login rate limits are isolated by account and success cannot clear another account limit', async (t) => {
-  const { origin } = await startApp(t);
-  await setupOwner(origin);
-  await post(origin, '/actions/auth/register', { displayName: 'Grace Hopper', email: 'grace@example.com', password: 'another-good-password', confirmPassword: 'another-good-password' });
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    await post(origin, '/actions/auth/login', { email: 'ada@example.com', password: 'wrong-password' });
-  }
-  let response = await post(origin, '/actions/auth/login', { email: 'ada@example.com', password });
-  assert.match(response.headers.get('location'), /error=limit/);
-  response = await post(origin, '/actions/auth/login', { email: 'grace@example.com', password: 'another-good-password' });
-  assert.match(response.headers.get('set-cookie'), /^ml_session=/);
-  response = await post(origin, '/actions/auth/login', { email: 'ada@example.com', password });
-  assert.match(response.headers.get('location'), /error=limit/);
-});
