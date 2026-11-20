@@ -18,5 +18,5 @@ export default async function Page({ searchParams }) {
     google: 'Google sign-in is not configured on this server.',
     github: 'GitHub sign-in is not configured on this server.',
   };
-  return authPage({ mode: 'login', error: errors[query.error] || '' });
+  return authPage({ mode: 'login', error: errors[query.error] || '', notice: query.reset === 'success' ? 'Password updated. Sign in with your new password.' : '' });
 }
