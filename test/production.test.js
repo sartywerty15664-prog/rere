@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateProductionConfig } from '../src/server/production.js';
+import { consumeRateLimit, clearRateLimit } from '../src/server/rate-limit.js';
 
 const validBase = {
   PUBLIC_URL: 'https://mindlarp.example',
@@ -82,4 +83,20 @@ test('Open WebUI URLs follow the public HTTPS and private upstream rules', () =>
   assert.deepEqual(validationErrors({ OPENWEBUI_API_BASE_URL: 'https://mindlarp.ai/v1' }), []);
   assert.deepEqual(validationErrors({ OPENWEBUI_API_BASE_URL: 'http://host.docker.internal:3000/v1' }), []);
   assert.deepEqual(validationErrors({ OPENWEBUI_API_BASE_URL: 'http://mindlarp.example/v1', ALLOW_HTTP_UPSTREAM: 'true' }), []);
+});
+
+
+test('rate limiter validates limits and isolates account identifiers', () => {
+  const request = new Request('https://mindlarp.example/login', {
+    headers: { 'x-real-ip': '203.0.113.10' },
+  });
+  const bucket = 'production-test-account-isolation';
+
+  assert.equal(consumeRateLimit(request, bucket, { limit: 2, windowMs: 60000, identifier: 'ada@example.com' }).allowed, true);
+  assert.equal(consumeRateLimit(request, bucket, { limit: 2, windowMs: 60000, identifier: 'ada@example.com' }).allowed, true);
+  assert.equal(consumeRateLimit(request, bucket, { limit: 2, windowMs: 60000, identifier: 'ada@example.com' }).allowed, false);
+  assert.equal(consumeRateLimit(request, bucket, { limit: 2, windowMs: 60000, identifier: 'grace@example.com' }).allowed, true);
+  clearRateLimit(request, bucket, 'ada@example.com');
+  clearRateLimit(request, bucket, 'grace@example.com');
+  assert.throws(() => consumeRateLimit(request, bucket, { limit: 0, windowMs: 60000 }), /positive integer/);
 });
