@@ -165,8 +165,8 @@ export async function findOrCreateOAuthUser(identity) {
       )
     );
 
-    if (!user && identity.emailVerified && !email.endsWith('@private.mindlarp.invalid')) {
-      user = data.users.find((item) => normalizeEmail(item.email) === email) || null;
+    if (!user && data.users.some((item) => normalizeEmail(item.email) === email)) {
+      throw new Error('An account with this email already exists. Sign in with its original authentication method.');
     }
 
     if (user) {
