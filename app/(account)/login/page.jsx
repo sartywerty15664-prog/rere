@@ -12,13 +12,11 @@ export default async function Page({ searchParams }) {
   if (await getCurrentAuth()) redirect('/console');
   const query = await searchParams;
   const errors = {
-    oauth: 'Social sign-in could not be completed. Try again or use your password.',
-    'oauth-config': 'Google or GitHub sign-in is not configured yet.',
-    consent: 'To create a new account with Google or GitHub, first agree to the Personal Data Processing Policy.',
-    credentials: 'Email or password is incorrect.',
-    limit: 'Too many attempts. Try again later.',
+    oauth: 'Social sign-in could not be completed. Please try again.',
+    'oauth-config': 'A sign-in provider is not configured yet.',
+    apple: 'Apple sign-in is not configured on this server.',
     google: 'Google sign-in is not configured on this server.',
     github: 'GitHub sign-in is not configured on this server.',
   };
-  return authPage({ mode: 'login', error: errors[query.error] || '', notice: query.reset === 'success' ? 'Password updated. Sign in with your new password.' : '', values: { email: query.email || '' } });
+  return authPage({ mode: 'login', error: errors[query.error] || '' });
 }
