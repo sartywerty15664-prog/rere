@@ -55,8 +55,8 @@ img, svg, canvas { display: block; }
 .brand-cursor { color: var(--accent); animation: terminal-blink 1.3s steps(1) infinite; }
 .public-rail { display: flex; align-items: center; gap: 48px; }
 .rail-nav { display: flex; align-items: center; gap: 30px; }
-.rail-link { position: relative; padding: 26px 0 25px; color: var(--muted); font: 11px var(--mono); transition: color .2s; }
-.rail-link::after { content: ''; position: absolute; left: 0; right: 100%; bottom: -1px; height: 1px; background: var(--accent); transition: right .25s; }
+.rail-link { position: relative; padding: 4px 0; color: var(--muted); font: 11px var(--mono); transition: color .2s; }
+.rail-link::after { content: ''; position: absolute; left: 0; right: 100%; bottom: 0; height: 1px; background: var(--accent); transition: right .25s; }
 .rail-link:hover, .rail-link.active { color: var(--text); }
 .rail-link.active::after, .rail-link:hover::after { right: 0; }
 .rail-bottom { display: flex; align-items: center; gap: 20px; }
