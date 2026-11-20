@@ -42,7 +42,7 @@ export async function publicLayout({ path = '/', content, bodyClass = '' }) {
 
   return <div className={`public-page ${bodyClass}`}>
     <a className="skip-link" href="#main">Skip to content</a>
-    <div className="announcement"><span><span className="status-dot" /> SOL 1 SERIES / NOW AVAILABLE</span><a href="/changelog">READ THE RELEASE NOTES <Icon name="arrow" /></a></div>
+    <div className="announcement"><span><span className="status-dot" /> LARP 1 SERIES / COMING SOON</span><a href="/changelog">READ THE ANNOUNCEMENT <Icon name="arrow" /></a></div>
     <header className="public-header">
       <a href="/" className="brand" aria-label="MindLarp home"><Brand /></a>
       <button className="icon-button nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false"><Icon name="menu" /></button>

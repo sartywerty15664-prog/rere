@@ -172,7 +172,7 @@ MINDLARP_UPSTREAM_URL=https://provider.example/v1
 MINDLARP_UPSTREAM_KEY=your-provider-key
 ```
 
-The server proxies requests to `POST https://provider.example/v1/chat/completions`. Available identifiers are `MindLarp-Sol-1-Plus` and `MindLarp-Sol-1-Max`; configure matching aliases in the upstream gateway if necessary. Non-stream responses are capped at 1 MiB, chat answers are capped at 100,000 characters, and omitted `max_tokens` values default to `4096`.
+The server proxies requests to `POST https://provider.example/v1/chat/completions`. Available identifiers are `MindLarp-Larp-1` and `MindLarp-Larp-1-Code` (both coming soon); configure matching aliases in the upstream gateway if necessary. Non-stream responses are capped at 1 MiB, chat answers are capped at 100,000 characters, and omitted `max_tokens` values default to `4096`.
 
 Production inference is fail-closed. Requests require an `active` or `trialing` Stripe subscription unless `ALLOW_INFERENCE_WITHOUT_SUBSCRIPTION=true` is explicitly configured for a trusted non-billing deployment. `INFERENCE_DAILY_REQUEST_LIMIT` is required and is enforced once per account across API keys and browser chat; API keys are additionally capped at 10 active keys and 120 inference requests per account per minute. A quota check is a launch safeguard, not a replacement for provider-side budgets and metered billing.
 
@@ -180,7 +180,7 @@ Production inference is fail-closed. Requests require an `active` or `trialing` 
 curl http://localhost:5173/v1/chat/completions \
   -H "Authorization: Bearer ml_sk_live_your_key" \
   -H "Content-Type: application/json" \
-  -d '{"model":"MindLarp-Sol-1-Plus","messages":[{"role":"user","content":"Hello"}]}'
+  -d '{"model":"MindLarp-Larp-1","messages":[{"role":"user","content":"Hello"}]}'
 ```
 
 ## Open WebUI

@@ -3,7 +3,7 @@ import { pageMetadata, publicUrl } from '@/src/server/metadata.js';
 import '@/public/style.css';
 
 export const metadata = {
-  ...pageMetadata('The open intelligence model family', 'Meet MindLarp Sol 1 Plus and Sol 1 Max: two AI models for everyday work and deeper reasoning. Start a chat or build with one simple API.'),
+  ...pageMetadata('The open intelligence model family', 'Meet MindLarp Larp 1 and Larp 1 Code: two AI models for everyday work and deeper reasoning. Coming soon — start a chat or build with one simple API.'),
   metadataBase: new URL(publicUrl()),
   title: { default: 'The open intelligence model family · MindLarp', template: '%s · MindLarp' },
   icons: { icon: '/assets/logo.png' },

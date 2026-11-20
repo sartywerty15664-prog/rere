@@ -11,6 +11,6 @@ export function pageMetadata(title, description, path = '/') {
   };
 }
 
-export const publicPaths = ['/', '/models', '/models/sol-1-plus', '/models/sol-1-max', '/pricing', '/docs', '/docs/getting-started', '/docs/models', '/docs/authentication', '/docs/api-reference', '/docs/errors', '/changelog', '/legal', '/status'];
+export const publicPaths = ['/', '/models', '/models/larp-1', '/models/larp-1-code', '/pricing', '/docs', '/docs/getting-started', '/docs/models', '/docs/authentication', '/docs/api-reference', '/docs/errors', '/changelog', '/legal', '/status'];
 
 export { publicUrl };

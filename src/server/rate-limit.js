@@ -1,10 +1,7 @@
 const stores = globalThis.__mindLarpRateLimitStores ||= new Map();
 
 function clientKey(request) {
-  // Vercel overwrites these headers at its trusted edge. On other hosts,
-  // only trust forwarded client IP headers when explicitly configured.
-  const trustProxy = process.env.TRUST_PROXY === 'true' || process.env.VERCEL === '1';
-  if (!trustProxy) return 'direct';
+  if (process.env.TRUST_PROXY !== 'true') return 'direct';
   return request.headers.get('x-real-ip')?.trim()
     || request.headers.get('x-forwarded-for')?.split(',')[0].trim()
     || 'unknown';

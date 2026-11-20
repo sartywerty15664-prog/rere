@@ -23,12 +23,6 @@ if (originError) return originError;
   if (error) return error;
 
   const email = normalizeEmail(body.get('email'));
-  const ipRate = consumeRateLimit(request, 'login-ip', {
-    limit: 60,
-    windowMs: 5 * 60_000,
-  });
-  if (!ipRate.allowed) return formRedirect(request, '/login?error=limit');
-
   const rate = consumeRateLimit(request, 'login', {
     limit: 10,
     windowMs: 5 * 60_000,
@@ -72,3 +66,4 @@ if (originError) return originError;
     session.token
   );
 }
+

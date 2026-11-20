@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation';
 import { forgotPasswordPage } from '@/src/views/public.js';
 import { getStore } from '@/src/server/store.js';
 
-export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Recover account', robots: { index: false, follow: false } };
 
 export default async function Page({ searchParams }) {

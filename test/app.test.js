@@ -169,7 +169,7 @@ async function startUpstream(t, responseText = 'A clear answer.') {
 
 test('public pages, assets, SEO, trust strip, and health work on Next.js', async (t) => {
   const { origin } = await startApp(t);
-  for (const path of ['/', '/models', '/models/sol-1-plus', '/models/sol-1-max', '/pricing', '/docs', '/docs/getting-started', '/docs/api-reference', '/changelog', '/legal', '/status']) {
+  for (const path of ['/', '/models', '/models/larp-1', '/models/larp-1-code', '/pricing', '/docs', '/docs/getting-started', '/docs/api-reference', '/changelog', '/legal', '/status']) {
     const response = await fetch(`${origin}${path}`);
     assert.equal(response.status, 200, path);
     assert.match(response.headers.get('content-type'), /text\/html/);
@@ -296,7 +296,7 @@ test('API keys are scoped, hashed, validated, protected by CSRF, and revocable',
   const modelsResponse = await fetch(`${origin}/v1/models`, { headers: { Authorization: `Bearer ${secret}` } });
   assert.equal(modelsResponse.status, 200);
   const catalog = await modelsResponse.json();
-  assert.deepEqual(catalog.data.map((model) => model.id), ['MindLarp-Sol-1-Plus', 'MindLarp-Sol-1-Max']);
+  assert.deepEqual(catalog.data.map((model) => model.id), ['MindLarp-Larp-1', 'MindLarp-Larp-1-Code']);
   assert.equal((await fetch(`${origin}/v1/models`, { headers: { Authorization: 'Bearer wrong' } })).status, 401);
   const keyId = data.keys[0].id;
   response = await post(origin, `/console/keys/${keyId}/revoke`, { csrf }, cookie);
@@ -312,7 +312,7 @@ test('unconfigured inference and chat return truthful errors and record request 
   const { secret } = await createKey(origin, cookie);
   let response = await fetch(`${origin}/v1/chat/completions`, {
     method: 'POST', headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'MindLarp-Sol-1-Plus', messages: [{ role: 'user', content: 'Hello' }] }),
+    body: JSON.stringify({ model: 'MindLarp-Larp-1', messages: [{ role: 'user', content: 'Hello' }] }),
   });
   assert.equal(response.status, 503);
   assert.equal((await response.json()).error.code, 'inference_not_configured');
@@ -320,9 +320,9 @@ test('unconfigured inference and chat return truthful errors and record request 
   const html = await (await fetch(`${origin}/chat`, { headers: { Cookie: cookie } })).text();
   const csrf = html.match(/name="csrf" value="([^"]+)"/)[1];
   assert.match(html, /What are you thinking about/);
-  response = await fetch(`${origin}/chat/messages`, { method: 'POST', headers: { Cookie: cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'MindLarp-Sol-1-Plus', message: 'Hello' }) });
+  response = await fetch(`${origin}/chat/messages`, { method: 'POST', headers: { Cookie: cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'MindLarp-Larp-1', message: 'Hello' }) });
   assert.equal(response.status, 403);
-  response = await fetch(`${origin}/chat/messages`, { method: 'POST', headers: { Cookie: cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ csrf, model: 'MindLarp-Sol-1-Plus', message: 'Hello' }) });
+  response = await fetch(`${origin}/chat/messages`, { method: 'POST', headers: { Cookie: cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ csrf, model: 'MindLarp-Larp-1', message: 'Hello' }) });
   assert.equal(response.status, 503);
   const overview = await (await fetch(`${origin}/console`, { headers: { Cookie: cookie } })).text();
   assert.match(overview, /Latest API requests/);
@@ -335,23 +335,23 @@ test('configured upstream completions proxy JSON and streams with usage accounti
   const { secret } = await createKey(origin, cookie);
   let response = await fetch(`${origin}/v1/chat/completions`, {
     method: 'POST', headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'MindLarp-Sol-1-Plus', messages: [{ role: 'user', content: 'Hello' }] }),
+    body: JSON.stringify({ model: 'MindLarp-Larp-1', messages: [{ role: 'user', content: 'Hello' }] }),
   });
   assert.equal(response.status, 200);
   assert.equal((await response.json()).choices[0].message.content, 'A clear answer.');
   response = await fetch(`${origin}/v1/chat/completions`, {
     method: 'POST', headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'MindLarp-Sol-1-Max', messages: [{ role: 'user', content: 'Hello' }], stream: true }),
+    body: JSON.stringify({ model: 'MindLarp-Larp-1-Code', messages: [{ role: 'user', content: 'Hello' }], stream: true }),
   });
   assert.equal(response.status, 200);
   assert.match(response.headers.get('content-type'), /text\/event-stream/);
   assert.match(await response.text(), /data: \[DONE\]/);
   assert.equal(upstream.requests[0].url, '/v1/chat/completions');
   const data = await readData();
-  const completionUsage = data.usage.find((event) => event.model === 'MindLarp-Sol-1-Plus');
+  const completionUsage = data.usage.find((event) => event.model === 'MindLarp-Larp-1');
   assert.equal(completionUsage.totalTokens, 10);
   assert.equal(completionUsage.promptTokens, 7);
-  assert.equal(data.usage.find((event) => event.model === 'MindLarp-Sol-1-Max').status, 200);
+  assert.equal(data.usage.find((event) => event.model === 'MindLarp-Larp-1-Code').status, 200);
 });
 
 test('chat persists real upstream answers and billing setup reports missing Stripe', async (t) => {
@@ -360,7 +360,7 @@ test('chat persists real upstream answers and billing setup reports missing Stri
   const cookie = await setupOwner(origin);
   const html = await (await fetch(`${origin}/chat`, { headers: { Cookie: cookie } })).text();
   const csrf = html.match(/name="csrf" value="([^"]+)"/)[1];
-  const response = await fetch(`${origin}/chat/messages`, { method: 'POST', headers: { Cookie: cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ csrf, model: 'MindLarp-Sol-1-Plus', message: 'Hello' }) });
+  const response = await fetch(`${origin}/chat/messages`, { method: 'POST', headers: { Cookie: cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ csrf, model: 'MindLarp-Larp-1', message: 'Hello' }) });
   assert.equal(response.status, 200);
   assert.equal((await response.json()).message, 'A real upstream answer.');
   const data = await readData();
@@ -687,13 +687,13 @@ test('inference requires entitlement and enforces one daily account quota across
   const { secret } = await createKey(restricted.origin, cookie);
   let response = await fetch(`${restricted.origin}/v1/chat/completions`, {
     method: 'POST', headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'MindLarp-Sol-1-Plus', messages: [{ role: 'user', content: 'Hello' }] }),
+    body: JSON.stringify({ model: 'MindLarp-Larp-1', messages: [{ role: 'user', content: 'Hello' }] }),
   });
   assert.equal(response.status, 403);
   assert.equal((await response.json()).error.code, 'inference_access_denied');
   const chatHtml = await (await fetch(`${restricted.origin}/chat`, { headers: { Cookie: cookie } })).text();
   const csrf = chatHtml.match(/name="csrf" value="([^"]+)"/)[1];
-  response = await fetch(`${restricted.origin}/chat/messages`, { method: 'POST', headers: { Cookie: cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ csrf, model: 'MindLarp-Sol-1-Plus', message: 'Hello' }) });
+  response = await fetch(`${restricted.origin}/chat/messages`, { method: 'POST', headers: { Cookie: cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ csrf, model: 'MindLarp-Larp-1', message: 'Hello' }) });
   assert.equal(response.status, 403);
   assert.equal(upstream.requests.length, 0);
 
@@ -705,7 +705,7 @@ test('inference requires entitlement and enforces one daily account quota across
   for (const [index, key] of [firstKey.secret, secondKey.secret].entries()) {
     response = await fetch(`${limited.origin}/v1/chat/completions`, {
       method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'MindLarp-Sol-1-Plus', messages: [{ role: 'user', content: 'Hello' }] }),
+      body: JSON.stringify({ model: 'MindLarp-Larp-1', messages: [{ role: 'user', content: 'Hello' }] }),
     });
     assert.equal(response.status, index === 0 ? 200 : 429);
     if (index === 1) assert.equal((await response.json()).error.code, 'inference_quota_exceeded');
@@ -737,7 +737,7 @@ test('upstream errors and oversized responses are bounded and do not leak provid
   for (const message of ['failure', 'oversize']) {
     const response = await fetch(`${origin}/v1/chat/completions`, {
       method: 'POST', headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'MindLarp-Sol-1-Plus', messages: [{ role: 'user', content: message }] }),
+      body: JSON.stringify({ model: 'MindLarp-Larp-1', messages: [{ role: 'user', content: message }] }),
     });
     assert.equal(response.status, 502);
     const result = await response.json();

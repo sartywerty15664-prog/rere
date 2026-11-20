@@ -65,7 +65,7 @@ export function publicLayout({ title, description = 'A family of AI models for c
 </head>
 <body class="public-page ${bodyClass}">
   <a class="skip-link" href="#main">Skip to content</a>
-  <div class="announcement"><span><span class="status-dot"></span> SOL 1 SERIES / NOW AVAILABLE</span><a href="/changelog">READ THE RELEASE NOTES ${icon('arrow')}</a></div>
+  <div class="announcement"><span><span class="status-dot"></span> LARP 1 SERIES / COMING SOON</span><a href="/changelog">READ THE ANNOUNCEMENT ${icon('arrow')}</a></div>
   <header class="public-header">
     <a href="/" class="brand" aria-label="MindLarp home">${brand()}</a>
     <button class="icon-button nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">${icon('menu')}</button>
