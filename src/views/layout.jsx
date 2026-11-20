@@ -2,7 +2,6 @@ import { headers } from 'next/headers';
 import { StaticContent } from '@/components/static-content.jsx';
 import { TrustedController } from '@/components/trusted-controller.jsx';
 import { icon } from '../html.js';
-import { openWebuiUrl } from '../server/config.js';
 
 export const navigation = [
   ['Models', '/models'],
@@ -72,7 +71,7 @@ export async function publicLayout({ path = '/', content, bodyClass = '' }) {
 }
 
 export function consoleLayout({ path, content, user, csrf }) {
-  const items = [['/console', 'Overview', 'home'], [openWebuiUrl(), 'Chat', 'arrow'], ['/console/keys', 'API keys', 'key'], ['/console/usage', 'Usage', 'chart'], ['/console/billing', 'Billing', 'chart'], ['/console/settings', 'Settings', 'settings']];
+  const items = [['/console', 'Overview', 'home'], ['/chat', 'Chat', 'arrow'], ['/console/keys', 'API keys', 'key'], ['/console/usage', 'Usage', 'chart'], ['/console/billing', 'Billing', 'chart'], ['/console/settings', 'Settings', 'settings']];
   return <div className="console-page">
     <a className="skip-link" href="#main">Skip to content</a>
     <aside className="console-sidebar">
