@@ -11,6 +11,11 @@ export default async function Page({ searchParams }) {
   if (!store.data.users.length) redirect('/setup');
   if (await getCurrentAuth()) redirect('/console');
   const query = await searchParams;
-  const errors = { invalid: 'Check your name and email. Passwords must match and contain at least 12 characters.', exists: 'An account with this email already exists. Sign in instead.', limit: 'Too many registration attempts. Try again later.', consent: 'Please agree to the Personal Data Processing Policy before creating an account.' };
-  return authPage({ mode: 'register', error: errors[query.error] || '', values: { displayName: query.displayName || '', email: query.email || '' } });
+  const errors = {
+    oauth: 'Account creation could not be completed. Please try again.',
+    apple: 'Apple sign-in is not configured on this server.',
+    google: 'Google sign-in is not configured on this server.',
+    github: 'GitHub sign-in is not configured on this server.',
+  };
+  return authPage({ mode: 'register', error: errors[query.error] || '' });
 }
