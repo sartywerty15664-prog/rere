@@ -120,7 +120,7 @@ export async function completeOAuth(provider, url, encoded, callbackData = null)
     try { userInfo = JSON.parse(params.get('user') || '{}'); } catch {}
     const email = typeof claims.email === 'string' ? claims.email.toLowerCase() : `apple-${createHash('sha256').update(claims.sub).digest('hex').slice(0, 24)}@private.mindlarp.invalid`;
     const name = [userInfo.name?.firstName, userInfo.name?.lastName].filter(Boolean).join(' ').trim();
-    return { provider, providerId: String(claims.sub), email, displayName: name || email.split('@')[0] };
+    return { provider, providerId: String(claims.sub), email, emailVerified: claims.email_verified === true || claims.email_verified === 'true', displayName: name || email.split('@')[0] };
   }
   if (!tokens.access_token) throw new Error('The provider returned no access token.');
   const headers = { Authorization: `Bearer ${tokens.access_token}`, Accept: 'application/json', 'User-Agent': 'MindLarp' };
@@ -129,7 +129,7 @@ export async function completeOAuth(provider, url, encoded, callbackData = null)
     if (!response.ok) throw new Error('Could not read the Google profile.');
     const profile = await response.json();
     if (!profile.email_verified || !profile.email) throw new Error('A verified Google email is required.');
-    return { provider, providerId: String(profile.sub), email: profile.email.toLowerCase(), displayName: profile.name || profile.email.split('@')[0] };
+    return { provider, providerId: String(profile.sub), email: profile.email.toLowerCase(), emailVerified: true, displayName: profile.name || profile.email.split('@')[0] };
   }
   const [userResponse, emailResponse] = await Promise.all([fetch('https://api.github.com/user', { headers, signal: AbortSignal.timeout(15000) }), fetch('https://api.github.com/user/emails', { headers, signal: AbortSignal.timeout(15000) })]);
   if (!userResponse.ok || !emailResponse.ok) throw new Error('Could not read the GitHub profile.');
@@ -137,5 +137,5 @@ export async function completeOAuth(provider, url, encoded, callbackData = null)
   const emails = await emailResponse.json();
   const email = emails.find((item) => item.primary && item.verified) || emails.find((item) => item.verified);
   if (!email) throw new Error('A verified GitHub email is required.');
-  return { provider, providerId: String(profile.id), email: email.email.toLowerCase(), displayName: profile.name || profile.login };
+  return { provider, providerId: String(profile.id), email: email.email.toLowerCase(), emailVerified: true, displayName: profile.name || profile.login };
 }
