@@ -14,7 +14,7 @@ export const navigation = [
 export const socialLinks = [
   ['GitHub', 'https://github.com/ClodLeGrande'],
   ['YouTube', 'https://www.youtube.com/@ClodLeGrande'],
-  ['Hugging Face', 'https://huggingface.co/ClodLeGrande'],
+  ['Hugging Face', 'https://huggingface.co/mindlarp'],
   ['Telegram', 'https://t.me/ClodLeGrande'],
   ['Discord', 'https://discord.com/invite/clodlegrande'],
 ];
