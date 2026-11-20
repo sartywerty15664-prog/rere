@@ -9,6 +9,6 @@ export default async function Page({ searchParams }) {
   const store = await getStore();
   if (store.data.users.length) redirect('/login');
   const query = await searchParams;
-  const error = query.error === 'oauth' ? 'Workspace setup could not be completed. Please try again.' : '';
+  const error = query.error === 'oauth' ? 'Workspace setup could not be completed. Please try again.' : query.error === 'invalid' ? 'Passwords must match and contain at least 12 characters.' : query.error === 'limit' ? 'Too many setup attempts. Try again later.' : '';
   return authPage({ mode: 'setup', error });
 }
