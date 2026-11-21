@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { models } from '@/src/content.js';
 import { getCurrentAuth, requireCsrf } from '@/src/server/auth.js';
 import { consumeRateLimit } from '@/src/server/rate-limit.js';
@@ -39,12 +38,10 @@ export async function POST(request) {
     if (!response.ok) return apiError(502, 'The model service rejected the request.', 'upstream_error', 'upstream_request_failed');
     if (typeof answer !== 'string' || answer.length > 100_000) return apiError(502, 'The model service returned an invalid response.', 'upstream_error', 'invalid_upstream_response');
     const timestamp = new Date().toISOString();
-    await store.update((data) => {
-      let stored = data.conversations.find((item) => item.userId === user.id);
-      if (!stored) { stored = { id: randomUUID(), userId: user.id, messages: [] }; data.conversations.push(stored); }
-      stored.messages.push({ role: 'user', content, createdAt: timestamp }, { role: 'assistant', content: answer, createdAt: timestamp });
-      if (stored.messages.length > 100) stored.messages = stored.messages.slice(-100);
-    });
+    await store.appendConversationMessages(user.id, [
+      { role: 'user', content, createdAt: timestamp },
+      { role: 'assistant', content: answer, createdAt: timestamp },
+    ]);
     return json({ message: answer, model: model.id });
   } catch {
     await recordUsage({ userId: user.id, endpoint: '/chat', model: model.id, status: 502 });
