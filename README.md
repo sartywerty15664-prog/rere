@@ -157,7 +157,7 @@ The local container uses `supabase/postgres:17.6.1.044`; the schema uses standar
 4. Set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SECRET_KEY` only when the corresponding Supabase APIs are added.
 5. Keep database passwords and the Supabase secret key server-side. The current application does not expose direct table access to browsers and does not require permissive RLS policies.
 
-Authentication is currently implemented by the MindLarp server, not Supabase Auth. Moving to Supabase Auth later requires a deliberate session and account-mapping migration; it is not silently emulated here.
+Authentication is currently implemented by the MindLarp server, not Supabase Auth. Sign-in uses Google or GitHub OAuth only; password-based sign-in and password recovery are disabled. The initial owner password is used only during first-time workspace setup.ng to Supabase Auth later requires a deliberate session and account-mapping migration; it is not silently emulated here.
 
 ## Model inference
 
