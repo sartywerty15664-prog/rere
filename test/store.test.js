@@ -33,3 +33,24 @@ test('JSON store commits a draft only after the atomic file write succeeds', asy
   assert.deepEqual(store.data.users.map((user) => user.id), ['committed']);
   assert.deepEqual(JSON.parse(await readFile(filePath, 'utf8')).users.map((user) => user.id), ['committed']);
 });
+
+
+test('JSON store persists expired-session cleanup', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'mindlarp-sessions-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const filePath = join(directory, 'store.json');
+  const store = await new Store(filePath).init();
+  await store.update((data) => {
+    data.sessions.push(
+      { id: 'expired', expiresAt: new Date(1000).toISOString() },
+      { id: 'active', expiresAt: new Date(3000).toISOString() },
+    );
+  });
+
+  await store.cleanExpiredSessions(2000);
+  assert.deepEqual(store.data.sessions.map((session) => session.id), ['active']);
+  assert.deepEqual(
+    JSON.parse(await readFile(filePath, 'utf8')).sessions.map((session) => session.id),
+    ['active'],
+  );
+});
