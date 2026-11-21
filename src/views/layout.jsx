@@ -62,7 +62,7 @@ export async function publicLayout({ path = '/', content, bodyClass = '' }) {
         <div><span className="footer-label">/ EXPLORE</span><a href="/models">Models</a><a href="/pricing">Pricing</a><a href="/changelog">Changelog</a></div>
         <div><span className="footer-label">/ DEVELOPERS</span><a href="/docs">Documentation</a><a href="/docs/api-reference">API reference</a><a href="/console">Console</a></div>
         <div><span className="footer-label">/ COMPANY</span><a href="mailto:hello@mindlarp.ai">Contact</a><a href="/legal">Legal &amp; privacy</a><a href="/status">System status</a></div>
-        <div className="footer-system"><span className="footer-label">/ SYSTEM</span><span className="system-status"><span className="status-dot" /> Platform online</span><small>Made by ClodLeGrande</small></div>
+        <div className="footer-system"><span className="footer-label">/ SYSTEM</span><span className="system-status"><span className="status-dot" /> Status not monitored</span><small>Made by ClodLeGrande</small></div>
       </div>
       <div className="footer-socials" aria-label="Social links">{socialLinks.map(([label, href]) => <a key={label} href={href} target="_blank" rel="noreferrer" aria-label={`MindLarp on ${label}`}>{label} <Icon name="arrow" /></a>)}</div>
       <div className="footer-bottom"><span>{`© ${new Date().getFullYear()} ClodLeGrande`}</span><span>MINDLARP / CLODLEGRANDE</span></div>
