@@ -38,7 +38,7 @@ export class Store {
       this.data = draft;
       return result;
     });
-    this.writeQueue = operation.catch(() => {});
+    this.writeQueue = operation.then(() => { this.lastWriteError = null; }, (error) => { this.lastWriteError = error; });
     return operation;
   }
 
@@ -48,7 +48,9 @@ export class Store {
     await rename(temporary, this.filePath);
   }
 
-  cleanExpiredSessions(now = Date.now()) {
-    this.data.sessions = this.data.sessions.filter((session) => Date.parse(session.expiresAt) > now);
+  async cleanExpiredSessions(now = Date.now()) {
+    await this.update((data) => {
+      data.sessions = data.sessions.filter((session) => Date.parse(session.expiresAt) > now);
+    });
   }
 }
