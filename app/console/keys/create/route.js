@@ -26,13 +26,7 @@ export async function POST(request) {
   if (error) return htmlResponse(keysContent({ user, csrf: session.csrf, keys, error, openCreate: true }), 'API keys', 400, { user, csrf: session.csrf, path: '/console/keys' });
   const secret = `ml_sk_live_${randomToken(32)}`;
   const key = { id: randomUUID(), userId: user.id, name, hash: hashToken(secret), prefix: secret.slice(0, 15), lastFour: secret.slice(-4), scopes, expiresAt: expires === 'never' ? null : new Date(Date.now() + Number(expires) * 86400000).toISOString(), createdAt: new Date().toISOString(), lastUsedAt: null, revokedAt: null };
-  let created = false;
-  await store.update((data) => {
-    const currentActiveKeys = data.keys.filter((item) => item.userId === user.id && !item.revokedAt && (!item.expiresAt || Date.parse(item.expiresAt) > Date.now()));
-    if (currentActiveKeys.length >= 10) return;
-    data.keys.push(key);
-    created = true;
-  });
+  const created = await store.createApiKey(key);
   if (!created) return htmlResponse(keysContent({ user, csrf: session.csrf, keys, error: 'You can have at most 10 active API keys. Revoke an existing key first.', openCreate: true }), 'API keys', 400, { user, csrf: session.csrf, path: '/console/keys' });
   return htmlResponse(keysContent({ user, csrf: session.csrf, keys: [key, ...keys], createdKey: { ...key, secret } }), 'API keys', 201, { user, csrf: session.csrf, path: '/console/keys' });
 }
