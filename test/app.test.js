@@ -171,6 +171,7 @@ test('mobile workspace controls and chat layout remain usable', async () => {
   const css = await readFile(join(root, 'public/style.css'), 'utf8');
   const browser = await readFile(join(root, 'public/app.js'), 'utf8');
   assert.match(css, /\.console-sidebar-bottom \{ display: flex; align-items: center/);
+  assert.match(css, /\.public-rail \{[^}]*z-index: 31;/);
   assert.match(css, /height: calc\(100dvh - 175px\); min-height: min\(540px, calc\(100dvh - 175px\)\)/);
   assert.match(browser, /document\.querySelectorAll\('\.public-rail a'\)/);
   assert.match(browser, /if \(event\.key === 'Escape'\) closeNavigation\(\)/);
