@@ -10,10 +10,7 @@ export async function apiKeyAuth(request, scope) {
   if (!key || key.revokedAt || (key.expiresAt && Date.parse(key.expiresAt) <= Date.now())) return { error: [401, 'Invalid or expired API key.', 'authentication_error', 'invalid_api_key'] };
   if (!key.scopes.includes(scope)) return { error: [403, `This key lacks the ${scope} scope.`, 'permission_error', 'insufficient_scope'] };
   if (!key.lastUsedAt || Date.now() - Date.parse(key.lastUsedAt) > 60_000) {
-    await store.update((data) => {
-      const stored = data.keys.find((item) => item.id === key.id);
-      if (stored) stored.lastUsedAt = new Date().toISOString();
-    });
+    await store.touchApiKey(key.id);
   }
   return { key };
 }
