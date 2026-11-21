@@ -33,6 +33,16 @@ const definitions = {
 
 const emptyData = () => ({ version: 1, users: [], sessions: [], keys: [], usage: [], conversations: [], passwordResets: [] });
 
+// PostgreSQL parameters cannot represent identifiers. Keep table names behind
+// this strict allowlist instead of interpolating arbitrary configuration.
+const allowedTables = new Set(Object.values(definitions).map(({ table }) => table));
+function tableName(definition) {
+  if (!allowedTables.has(definition.table) || !/^[a-z_][a-z0-9_]*$/.test(definition.table)) {
+    throw new TypeError('Invalid database table definition');
+  }
+  return definition.table;
+}
+
 function fromRow(definition, row) {
   const item = {};
   for (const [property, column] of Object.entries(definition.fields)) {
@@ -68,7 +78,7 @@ export class PostgresStore {
   async read(client = this.pool) {
     const data = emptyData();
     for (const [collection, definition] of Object.entries(definitions)) {
-      const result = await client.query(`SELECT * FROM ${definition.table} ORDER BY created_at ASC, id ASC`);
+      const result = await client.query(`SELECT * FROM ${tableName(definition)} ORDER BY created_at ASC, id ASC`);
       data[collection] = result.rows.map((row) => fromRow(definition, row));
     }
     return data;
@@ -93,7 +103,7 @@ export class PostgresStore {
           const definition = definitions[collection];
           const retained = new Set(data[collection].map((item) => item.id));
           const removed = before[collection].filter((item) => !retained.has(item.id)).map((item) => item.id);
-          if (removed.length) await client.query(`DELETE FROM ${definition.table} WHERE id = ANY($1::uuid[])`, [removed]);
+          if (removed.length) await client.query(`DELETE FROM ${tableName(definition)} WHERE id = ANY($1::uuid[])`, [removed]);
         }
         for (const [collection, definition] of Object.entries(definitions)) {
           const previous = new Map(before[collection].map((item) => [item.id, item]));
@@ -102,7 +112,7 @@ export class PostgresStore {
             const columns = Object.values(definition.fields);
             const placeholders = columns.map((_, index) => `$${index + 1}`);
             const updates = columns.filter((column) => column !== 'id').map((column) => `${column} = EXCLUDED.${column}`);
-            await client.query(`INSERT INTO ${definition.table} (${columns.join(', ')}) VALUES (${placeholders.join(', ')}) ON CONFLICT (id) DO UPDATE SET ${updates.join(', ')}`, valuesFor(definition, item));
+            await client.query(`INSERT INTO ${tableName(definition)} (${columns.join(', ')}) VALUES (${placeholders.join(', ')}) ON CONFLICT (id) DO UPDATE SET ${updates.join(', ')}`, valuesFor(definition, item));
           }
         }
         await client.query('COMMIT');
@@ -115,13 +125,22 @@ export class PostgresStore {
         client.release();
       }
     });
-    this.writeQueue = operation.catch(() => {});
+    this.writeQueue = operation.then(() => { this.lastWriteError = null; }, (error) => { this.lastWriteError = error; });
     return operation;
   }
 
   async cleanExpiredSessions(now = Date.now()) {
-    await this.update((data) => {
-      data.sessions = data.sessions.filter((session) => Date.parse(session.expiresAt) > now);
-    });
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM sessions WHERE expires_at <= $1', [new Date(now).toISOString()]);
+      await client.query('COMMIT');
+      this.data.sessions = this.data.sessions.filter((session) => Date.parse(session.expiresAt) > now);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
