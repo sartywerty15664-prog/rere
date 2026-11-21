@@ -4,9 +4,17 @@ export function initializePage() {
   const timers = new Set();
   const on = (element, event, handler) => element?.addEventListener(event, handler, { signal });
   const navToggle = document.querySelector('.nav-toggle');
+  const closeNavigation = () => {
+    document.body.classList.remove('nav-open');
+    navToggle?.setAttribute('aria-expanded', 'false');
+  };
   on(navToggle, 'click', () => {
     const open = document.body.classList.toggle('nav-open');
     navToggle.setAttribute('aria-expanded', String(open));
+  });
+  document.querySelectorAll('.public-rail a').forEach((link) => on(link, 'click', closeNavigation));
+  on(document, 'keydown', (event) => {
+    if (event.key === 'Escape') closeNavigation();
   });
 
   document.querySelectorAll('[data-open-dialog]').forEach((button) => on(button, 'click', () => {
@@ -62,6 +70,7 @@ export function initializePage() {
     const input = document.getElementById('chat-input');
     const messages = document.getElementById('chat-messages');
     const submit = chatForm.querySelector('button[type="submit"]');
+    let sending = false;
 
     function appendChatMessage(role, content) {
       document.getElementById('chat-welcome')?.remove();
@@ -82,7 +91,8 @@ export function initializePage() {
     on(chatForm, 'submit', async (event) => {
       event.preventDefault();
       const content = input.value.trim();
-      if (!content) return;
+      if (!content || sending) return;
+      sending = true;
       appendChatMessage('user', content);
       input.value = '';
       input.style.height = 'auto';
@@ -99,6 +109,7 @@ export function initializePage() {
         thinking.remove();
         appendChatMessage('assistant', 'The connection was interrupted. Check the server and try again.');
       } finally {
+        sending = false;
         submit.disabled = false;
         input.focus();
       }
@@ -122,6 +133,7 @@ export function initializePage() {
 
   return () => {
     controller.abort();
+    closeNavigation();
     timers.forEach(clearTimeout);
   };
 }
