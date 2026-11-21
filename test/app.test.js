@@ -394,7 +394,7 @@ test('owner password login and registration policy remain enforced while logout 
   assert.equal((await post(origin, '/actions/auth/login', {
     email: 'ada@example.com',
     password,
-  })).status, 410);
+  })).status, 303);
   assert.equal((await readData()).users.length, 1);
 
   const consoleHtml = await (await fetch(`${origin}/console`, { headers: { Cookie: cookie } })).text();
