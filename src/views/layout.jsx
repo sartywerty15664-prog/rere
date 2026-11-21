@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import { StaticContent } from '@/components/static-content.jsx';
 import { TrustedController } from '@/components/trusted-controller.jsx';
+import { PrivacyControls } from '@/components/privacy-controls.jsx';
 import { icon } from '../html.js';
 import { publicUrl } from '../server/config.js';
 
@@ -68,6 +69,7 @@ export async function publicLayout({ path = '/', content, bodyClass = '' }) {
     </footer>
     <script type="application/ld+json" nonce={nonce} dangerouslySetInnerHTML={{ __html: structuredData }} />
     <TrustedController />
+    <PrivacyControls />
   </div>;
 }
 
