@@ -3,9 +3,10 @@ import { NextResponse } from 'next/server';
 export function proxy(request) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
   const development = process.env.NODE_ENV !== 'production';
+  const allowUnsafeEval = development && process.env.ALLOW_UNSAFE_EVAL_IN_DEV === 'true';
   const csp = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ''}`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${allowUnsafeEval ? " 'unsafe-eval'" : ''}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data:",
