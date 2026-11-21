@@ -9,6 +9,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
+import { publicUrl } from '../src/server/config.js';
 
 const password = 'a-very-good-password';
 const root = resolve(import.meta.dirname, '..');
@@ -166,6 +167,23 @@ async function startUpstream(t, responseText = 'A clear answer.') {
   t.after(() => close(upstream));
   return { url: `http://127.0.0.1:${port}/v1`, requests };
 }
+
+test('production canonical URL always uses the MindLarp domain', () => {
+  assert.equal(publicUrl('http://localhost:3000', {
+    NODE_ENV: 'production',
+    VERCEL_ENV: 'production',
+    VERCEL_URL: 'mindlarp-site.vercel.app',
+    PUBLIC_URL: 'https://mindlarp-site.vercel.app',
+  }), 'https://mindlarp.com');
+  assert.equal(publicUrl('http://localhost:3000', {
+    VERCEL_ENV: 'production',
+    CANONICAL_SITE_URL: 'https://www.mindlarp.com/',
+  }), 'https://www.mindlarp.com');
+  assert.equal(publicUrl('http://localhost:3000', {
+    VERCEL_ENV: 'preview',
+    VERCEL_URL: 'mindlarp-preview.vercel.app',
+  }), 'https://mindlarp-preview.vercel.app');
+});
 
 test('mobile workspace controls and chat layout remain usable', async () => {
   const css = await readFile(join(root, 'public/style.css'), 'utf8');
