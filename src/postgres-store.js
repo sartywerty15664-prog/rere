@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import { migrateDatabase, verifyDatabaseMigrations } from './server/database.js';
@@ -148,7 +149,7 @@ export class PostgresStore {
   async appendConversationMessages(userId, messages) {
     const client = await this.pool.connect();
     try {
-      const id = crypto.randomUUID();
+      const id = randomUUID();
       const payload = JSON.stringify(messages);
       const result = await client.query(
         'INSERT INTO conversations (id, user_id, messages) VALUES ($1, $2, $3::jsonb) ON CONFLICT (user_id) DO UPDATE SET messages = (conversations.messages || EXCLUDED.messages), updated_at = now() RETURNING *',
