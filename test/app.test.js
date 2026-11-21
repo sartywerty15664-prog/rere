@@ -167,6 +167,16 @@ async function startUpstream(t, responseText = 'A clear answer.') {
   return { url: `http://127.0.0.1:${port}/v1`, requests };
 }
 
+test('mobile workspace controls and chat layout remain usable', async () => {
+  const css = await readFile(join(root, 'public/style.css'), 'utf8');
+  const browser = await readFile(join(root, 'public/app.js'), 'utf8');
+  assert.match(css, /\.console-sidebar-bottom \\{ display: flex; align-items: center/);
+  assert.match(css, /height: calc\\(100dvh - 175px\\); min-height: min\\(540px, calc\\(100dvh - 175px\\)\\)/);
+  assert.match(browser, /document\.querySelectorAll\\('\\.public-rail a'\\)/);
+  assert.match(browser, /if \\(event\.key === 'Escape'\\) closeNavigation\\(\\)/);
+  assert.match(browser, /if \\(!content \\|\\| sending\\) return/);
+});
+
 test('public pages, assets, SEO, trust strip, and health work on Next.js', async (t) => {
   const { origin } = await startApp(t);
   for (const path of ['/', '/models', '/models/larp-1', '/models/larp-1-code', '/pricing', '/docs', '/docs/getting-started', '/docs/api-reference', '/changelog', '/legal', '/status']) {
