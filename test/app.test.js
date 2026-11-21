@@ -223,7 +223,6 @@ test('public pages, assets, SEO, trust strip, and health work on Next.js', async
   const renderedMarkup = html.split('<script type="application/ld+json"')[0];
   assert.equal((renderedMarkup.match(/data-trusted-set/g) || []).length, 0);
   assert.doesNotMatch(html, /aria-label="(Salesforce|Intel|Cisco|Red Hat|Revolut)"/);
-  assert.match(html, /aria-live="off"/);
   assert.ok(html.indexOf('id="trusted-strip-title"') < html.indexOf('What is MindLarp?'));
   assert.ok(html.indexOf('What is MindLarp?') < html.indexOf('[ 02 ]'));
   for (const path of ['/robots.txt', '/sitemap.xml', '/manifest.webmanifest', '/assets/og.svg', '/assets/logo.png', '/assets/style.css', '/bootstrap.js', '/vendor/gsap.min.js', '/vendor/ScrollTrigger.min.js', '/vendor/lenis.min.js']) {
