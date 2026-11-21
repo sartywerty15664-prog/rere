@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import { StaticContent } from '@/components/static-content.jsx';
 import { TrustedController } from '@/components/trusted-controller.jsx';
 import { icon } from '../html.js';
+import { publicUrl } from '../server/config.js';
 
 export const navigation = [
   ['Models', '/models'],
@@ -32,7 +33,7 @@ function renderContent(content) {
 
 export async function publicLayout({ path = '/', content, bodyClass = '' }) {
   const nonce = (await headers()).get('x-nonce') || undefined;
-  const siteUrl = (process.env.PUBLIC_URL || 'https://mindlarp.ai').replace(/\/$/, '');
+  const siteUrl = publicUrl();
   const structuredData = JSON.stringify({
     '@context': 'https://schema.org', '@type': 'Organization', name: 'MindLarp', url: siteUrl,
     logo: `${siteUrl}/assets/logo.png`, parentOrganization: { '@type': 'Organization', name: 'ClodLeGrande' },
