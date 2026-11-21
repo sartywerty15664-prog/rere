@@ -13,6 +13,6 @@ export async function POST(request, { params }) {
   const { id } = await params;
   const key = store.data.keys.find((item) => item.id === id && item.userId === auth.user.id && !item.revokedAt);
   if (!key) return htmlResponse(notFoundContent(), 'Not found', 404);
-  await store.update((data) => { data.keys.find((item) => item.id === key.id).revokedAt = new Date().toISOString(); });
+  await store.revokeApiKey(key.id, auth.user.id);
   return formRedirect(request, '/console/keys');
 }
