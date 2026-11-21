@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import { migrateDatabase, verifyDatabaseMigrations } from './server/database.js';
@@ -146,111 +147,14 @@ export class PostgresStore {
     return operation;
   }
 
-  async appendConversationMessages(userId, messages) {
-    const client = await this.pool.connect();
-    try {
-      const id = randomUUID();
-      const payload = JSON.stringify(messages);
-      const result = await client.query(
-        'INSERT INTO conversations (id, user_id, messages) VALUES ($1, $2, $3::jsonb) ON CONFLICT (user_id) DO UPDATE SET messages = (conversations.messages || EXCLUDED.messages), updated_at = now() RETURNING *',
-        [id, userId, payload],
-      );
-      const row = result.rows[0];
-      const item = fromRow(definitions.conversations, row);
-      const index = this.data.conversations.findIndex((entry) => entry.userId === userId);
-      if (index >= 0) this.data.conversations[index] = item;
-      else this.data.conversations.push(item);
-      return item;
-    } finally {
-      client.release();
-    }
-  }
-
-  async appendUsageEvent(event) {
-    const client = await this.pool.connect();
-    try {
-      await client.query('BEGIN');
-      if (event.userId) await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [event.userId]);
-      await client.query(
-        'INSERT INTO usage_events (id, key_id, user_id, endpoint, model, status, prompt_tokens, completion_tokens, total_tokens, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
-        [event.id, event.keyId, event.userId, event.endpoint, event.model, event.status, event.promptTokens, event.completionTokens, event.totalTokens, event.createdAt],
-      );
-      await client.query(
-        'DELETE FROM usage_events WHERE id IN (SELECT id FROM usage_events WHERE user_id IS NOT DISTINCT FROM $1 ORDER BY created_at DESC, id DESC OFFSET 10000)',
-        [event.userId],
-      );
-      await client.query('COMMIT');
-      this.data.usage.unshift(event);
-      this.data.usage = this.data.usage.filter((item) => item.userId !== event.userId || item.id === event.id)
-        .concat(this.data.usage.filter((item) => item.userId === event.userId && item.id !== event.id).slice(0, 9999));
-    } catch (error) {
-      try { await client.query('ROLLBACK'); } catch {}
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-
-  async touchApiKey(id, timestamp = new Date().toISOString()) {
-    await this.pool.query(
-      "UPDATE api_keys SET last_used_at = $2 WHERE id = $1 AND (last_used_at IS NULL OR last_used_at <= $2::timestamptz - interval '60 seconds')",
-      [id, timestamp],
-    );
-  }
-
-  async revokeApiKey(id, userId, timestamp = new Date().toISOString()) {
-    const result = await this.pool.query(
-      'UPDATE api_keys SET revoked_at = $3 WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL RETURNING id',
-      [id, userId, timestamp],
-    );
-    return result.rowCount > 0;
-  }
-
-  async deleteSession(id) {
-    await this.pool.query('DELETE FROM sessions WHERE id = $1', [id]);
-    this.data.sessions = this.data.sessions.filter((session) => session.id !== id);
-  }
-
-  async createApiKey(key, now = new Date().toISOString()) {
-    const client = await this.pool.connect();
-    try {
-      await client.query('BEGIN');
-      await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [key.userId]);
-      const count = await client.query(
-        'SELECT count(*)::integer AS count FROM api_keys WHERE user_id = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > $2)',
-        [key.userId, now],
-      );
-      if (count.rows[0].count >= 10) {
-        await client.query('ROLLBACK');
-        return false;
-      }
-      const definition = definitions.keys;
-      const columns = Object.values(definition.fields);
-      const placeholders = columns.map((_, index) => `${index + 1}`);
-      await client.query(
-        `INSERT INTO api_keys (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`,
-        valuesFor(definition, key),
-      );
-      await client.query('COMMIT');
-      this.data.keys.push(key);
-      return true;
-    } catch (error) {
-      try { await client.query('ROLLBACK'); } catch {}
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-
-  async cleanExpiredSessions(now = Date.now()) {
+  async withSerializableTransaction(operation) {
     for (let attempt = 0; attempt < MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
       const client = await this.pool.connect();
       try {
         await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
-        await client.query('DELETE FROM sessions WHERE expires_at <= $1', [new Date(now).toISOString()]);
+        const result = await operation(client);
         await client.query('COMMIT');
-        this.data.sessions = this.data.sessions.filter((session) => Date.parse(session.expiresAt) > now);
-        return;
+        return result;
       } catch (error) {
         try { await client.query('ROLLBACK'); } catch {}
         if (isRetryableTransactionError(error) && attempt < MAX_TRANSACTION_ATTEMPTS - 1) {
@@ -262,6 +166,95 @@ export class PostgresStore {
         client.release();
       }
     }
-    throw new Error('PostgreSQL session cleanup retry limit reached');
+    throw new Error('PostgreSQL transaction retry limit reached');
+  }
+
+  async appendConversationMessages(userId, messages) {
+    const item = await this.withSerializableTransaction(async (client) => {
+      const result = await client.query(
+        `INSERT INTO conversations (id, user_id, messages)
+         VALUES ($1, $2, $3::jsonb)
+         ON CONFLICT (user_id) DO UPDATE
+         SET messages = (
+           SELECT COALESCE(jsonb_agg(value ORDER BY ordinal), '[]'::jsonb)
+           FROM jsonb_array_elements(conversations.messages || EXCLUDED.messages)
+             WITH ORDINALITY AS entries(value, ordinal)
+           WHERE ordinal > jsonb_array_length(conversations.messages || EXCLUDED.messages) - 100
+         ),
+         updated_at = now()
+         RETURNING *`,
+        [randomUUID(), userId, JSON.stringify(messages)],
+      );
+      return fromRow(definitions.conversations, result.rows[0]);
+    });
+    const index = this.data.conversations.findIndex((entry) => entry.userId === userId);
+    if (index >= 0) this.data.conversations[index] = item;
+    else this.data.conversations.push(item);
+    return item;
+  }
+
+  async appendUsageEvent(event) {
+    await this.withSerializableTransaction(async (client) => {
+      if (event.userId) await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [event.userId]);
+      await client.query(
+        'INSERT INTO usage_events (id, key_id, user_id, endpoint, model, status, prompt_tokens, completion_tokens, total_tokens, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+        [event.id, event.keyId, event.userId, event.endpoint, event.model, event.status, event.promptTokens, event.completionTokens, event.totalTokens, event.createdAt],
+      );
+      await client.query(
+        'DELETE FROM usage_events WHERE id IN (SELECT id FROM usage_events WHERE user_id IS NOT DISTINCT FROM $1 ORDER BY created_at DESC, id DESC OFFSET 10000)',
+        [event.userId],
+      );
+    });
+    this.data.usage.unshift(event);
+    this.data.usage = this.data.usage.filter((item) => item.userId !== event.userId || item.id === event.id)
+      .concat(this.data.usage.filter((item) => item.userId === event.userId && item.id !== event.id).slice(0, 9999));
+  }
+
+  async touchApiKey(id, timestamp = new Date().toISOString()) {
+    await this.withSerializableTransaction((client) => client.query(
+      "UPDATE api_keys SET last_used_at = $2 WHERE id = $1 AND (last_used_at IS NULL OR last_used_at <= $2::timestamptz - interval '60 seconds')",
+      [id, timestamp],
+    ));
+  }
+
+  async revokeApiKey(id, userId, timestamp = new Date().toISOString()) {
+    const result = await this.withSerializableTransaction((client) => client.query(
+      'UPDATE api_keys SET revoked_at = $3 WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL RETURNING id',
+      [id, userId, timestamp],
+    ));
+    return result.rowCount > 0;
+  }
+
+  async deleteSession(id) {
+    await this.withSerializableTransaction((client) => client.query('DELETE FROM sessions WHERE id = $1', [id]));
+    this.data.sessions = this.data.sessions.filter((session) => session.id !== id);
+  }
+
+  async createApiKey(key, now = new Date().toISOString()) {
+    const created = await this.withSerializableTransaction(async (client) => {
+      await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [key.userId]);
+      const count = await client.query(
+        'SELECT count(*)::integer AS count FROM api_keys WHERE user_id = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > $2)',
+        [key.userId, now],
+      );
+      if (count.rows[0].count >= 10) return false;
+      const definition = definitions.keys;
+      const columns = Object.values(definition.fields);
+      const placeholders = columns.map((_, index) => `$${index + 1}`);
+      await client.query(
+        `INSERT INTO api_keys (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`,
+        valuesFor(definition, key),
+      );
+      return true;
+    });
+    if (created) this.data.keys.push(key);
+    return created;
+  }
+
+  async cleanExpiredSessions(now = Date.now()) {
+    await this.withSerializableTransaction((client) =>
+      client.query('DELETE FROM sessions WHERE expires_at <= $1', [new Date(now).toISOString()]),
+    );
+    this.data.sessions = this.data.sessions.filter((session) => Date.parse(session.expiresAt) > now);
   }
 }
