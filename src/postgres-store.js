@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from 'node:util';
+import { setTimeout as delay } from 'node:timers/promises';
 import { migrateDatabase, verifyDatabaseMigrations } from './server/database.js';
 
 const iso = (value) => value ? new Date(value).toISOString() : null;
@@ -32,6 +33,8 @@ const definitions = {
 };
 
 const emptyData = () => ({ version: 1, users: [], sessions: [], keys: [], usage: [], conversations: [], passwordResets: [] });
+const MAX_TRANSACTION_ATTEMPTS = 4;
+const isRetryableTransactionError = (error) => ['40001', '40P01'].includes(error?.code);
 
 // PostgreSQL parameters cannot represent identifiers. Keep table names behind
 // this strict allowlist instead of interpolating arbitrary configuration.
@@ -90,60 +93,78 @@ export class PostgresStore {
   }
 
   async update(mutator) {
+    // Keep a per-instance queue for predictable in-memory cache updates, while
+    // PostgreSQL SERIALIZABLE transactions coordinate independent instances.
+    // This avoids a single advisory lock shared by every application instance.
     const operation = this.writeQueue.then(async () => {
-      const client = await this.pool.connect();
-      try {
-        await client.query('BEGIN');
-        await client.query('SELECT pg_advisory_xact_lock(741852963)');
-        const before = await this.read(client);
-        const data = structuredClone(before);
-        const result = await mutator(data);
-        const removalOrder = ['passwordResets', 'usage', 'conversations', 'sessions', 'keys', 'users'];
-        for (const collection of removalOrder) {
-          const definition = definitions[collection];
-          const retained = new Set(data[collection].map((item) => item.id));
-          const removed = before[collection].filter((item) => !retained.has(item.id)).map((item) => item.id);
-          if (removed.length) await client.query(`DELETE FROM ${tableName(definition)} WHERE id = ANY($1::uuid[])`, [removed]);
-        }
-        for (const [collection, definition] of Object.entries(definitions)) {
-          const previous = new Map(before[collection].map((item) => [item.id, item]));
-          for (const item of data[collection]) {
-            if (previous.has(item.id) && isDeepStrictEqual(previous.get(item.id), item)) continue;
-            const columns = Object.values(definition.fields);
-            const placeholders = columns.map((_, index) => `$${index + 1}`);
-            const updates = columns.filter((column) => column !== 'id').map((column) => `${column} = EXCLUDED.${column}`);
-            await client.query(`INSERT INTO ${tableName(definition)} (${columns.join(', ')}) VALUES (${placeholders.join(', ')}) ON CONFLICT (id) DO UPDATE SET ${updates.join(', ')}`, valuesFor(definition, item));
+      for (let attempt = 0; attempt < MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
+        const client = await this.pool.connect();
+        try {
+          await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
+          const before = await this.read(client);
+          const data = structuredClone(before);
+          const result = await mutator(data);
+          const removalOrder = ['passwordResets', 'usage', 'conversations', 'sessions', 'keys', 'users'];
+          for (const collection of removalOrder) {
+            const definition = definitions[collection];
+            const retained = new Set(data[collection].map((item) => item.id));
+            const removed = before[collection].filter((item) => !retained.has(item.id)).map((item) => item.id);
+            if (removed.length) await client.query(`DELETE FROM ${tableName(definition)} WHERE id = ANY($1::uuid[])`, [removed]);
           }
+          for (const [collection, definition] of Object.entries(definitions)) {
+            const previous = new Map(before[collection].map((item) => [item.id, item]));
+            for (const item of data[collection]) {
+              if (previous.has(item.id) && isDeepStrictEqual(previous.get(item.id), item)) continue;
+              const columns = Object.values(definition.fields);
+              const placeholders = columns.map((_, index) => `$${index + 1}`);
+              const updates = columns.filter((column) => column !== 'id').map((column) => `${column} = EXCLUDED.${column}`);
+              await client.query(`INSERT INTO ${tableName(definition)} (${columns.join(', ')}) VALUES (${placeholders.join(', ')}) ON CONFLICT (id) DO UPDATE SET ${updates.join(', ')}`, valuesFor(definition, item));
+            }
+          }
+          await client.query('COMMIT');
+          this.data = data;
+          this.lastWriteError = null;
+          return result;
+        } catch (error) {
+          try { await client.query('ROLLBACK'); } catch {}
+          if (isRetryableTransactionError(error) && attempt < MAX_TRANSACTION_ATTEMPTS - 1) {
+            await delay(10 * (2 ** attempt));
+            continue;
+          }
+          throw error;
+        } finally {
+          client.release();
         }
-        await client.query('COMMIT');
-        this.data = data;
-        return result;
-      } catch (error) {
-        await client.query('ROLLBACK');
-        throw error;
-      } finally {
-        client.release();
       }
+      throw new Error('PostgreSQL transaction retry limit reached');
     });
-    this.writeQueue = operation.then(() => { this.lastWriteError = null; }, (error) => { this.lastWriteError = error; });
+    this.writeQueue = operation.then(
+      () => { this.lastWriteError = null; },
+      (error) => { this.lastWriteError = error; },
+    );
     return operation;
   }
 
   async cleanExpiredSessions(now = Date.now()) {
-    const client = await this.pool.connect();
-    try {
-      await client.query('BEGIN');
-      // Coordinate with the snapshot-based update transaction to prevent it
-      // from re-inserting a session that cleanup just removed.
-      await client.query('SELECT pg_advisory_xact_lock(741852963)');
-      await client.query('DELETE FROM sessions WHERE expires_at <= $1', [new Date(now).toISOString()]);
-      await client.query('COMMIT');
-      this.data.sessions = this.data.sessions.filter((session) => Date.parse(session.expiresAt) > now);
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
+    for (let attempt = 0; attempt < MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
+      const client = await this.pool.connect();
+      try {
+        await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
+        await client.query('DELETE FROM sessions WHERE expires_at <= $1', [new Date(now).toISOString()]);
+        await client.query('COMMIT');
+        this.data.sessions = this.data.sessions.filter((session) => Date.parse(session.expiresAt) > now);
+        return;
+      } catch (error) {
+        try { await client.query('ROLLBACK'); } catch {}
+        if (isRetryableTransactionError(error) && attempt < MAX_TRANSACTION_ATTEMPTS - 1) {
+          await delay(10 * (2 ** attempt));
+          continue;
+        }
+        throw error;
+      } finally {
+        client.release();
+      }
     }
+    throw new Error('PostgreSQL session cleanup retry limit reached');
   }
 }
