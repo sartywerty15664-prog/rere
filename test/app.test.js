@@ -186,6 +186,7 @@ test('public pages, assets, SEO, trust strip, and health work on Next.js', async
   assert.match(html, /application\/ld\+json/);
   assert.match(response.headers.get('content-security-policy'), /nonce-/);
   assert.match(response.headers.get('content-security-policy'), /strict-dynamic/);
+  assert.doesNotMatch(response.headers.get('content-security-policy'), /unsafe-eval/);
   assert.match(html, /\u00A9 2026 ClodLeGrande/);
   for (const name of ['GitHub', 'YouTube', 'Hugging Face', 'Telegram', 'Discord']) assert.match(html, new RegExp(`aria-label="MindLarp on ${name}"`));
   assert.match(html, /Start chat/);
