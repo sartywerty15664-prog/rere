@@ -219,10 +219,10 @@ test('public pages, assets, SEO, trust strip, and health work on Next.js', async
   assert.match(html, /\u00A9 2026 ClodLeGrande/);
   for (const name of ['GitHub', 'YouTube', 'Hugging Face', 'Telegram', 'Discord']) assert.match(html, new RegExp(`aria-label="MindLarp on ${name}"`));
   assert.match(html, /Start chat/);
-  assert.match(html, /Trusted by 22M\+ developers/);
+  assert.match(html, /Built for independent builders/);
   const renderedMarkup = html.split('<script type="application/ld+json"')[0];
-  assert.equal((renderedMarkup.match(/data-trusted-set/g) || []).length, 3);
-  for (const name of ['Salesforce', 'Intel', 'Cisco', 'Red Hat', 'Revolut']) assert.match(html, new RegExp(`aria-label="${name}"`));
+  assert.equal((renderedMarkup.match(/data-trusted-set/g) || []).length, 0);
+  assert.doesNotMatch(html, /aria-label="(Salesforce|Intel|Cisco|Red Hat|Revolut)"/);
   assert.match(html, /aria-live="off"/);
   assert.ok(html.indexOf('id="trusted-strip-title"') < html.indexOf('What is MindLarp?'));
   assert.ok(html.indexOf('What is MindLarp?') < html.indexOf('[ 02 ]'));
