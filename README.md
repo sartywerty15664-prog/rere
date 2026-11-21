@@ -9,9 +9,9 @@ The website, documentation, chat, and developer console for the MindLarp model f
 - SEO metadata, Open Graph, JSON-LD, `robots.txt`, sitemap, and web manifest.
 - Chat connected to a configurable OpenAI-compatible inference service.
 - Open WebUI chat container wired to the MindLarp API for conversations with the model family.
-- Account registration, returning-user login, logout, and password changes.
+- Owner setup, owner password recovery sign-in, Google/GitHub OAuth, and logout.
 - Google and GitHub OAuth with PKCE where supported.
-- Password recovery over SMTP using single-use, 30-minute tokens.
+- Member accounts are created through OAuth; password registration and email reset are disabled.
 - Console with scoped API keys, usage reporting, profile settings, and billing.
 - Stripe Checkout, Customer Portal, and signed subscription webhooks.
 - PostgreSQL persistence with migrations, transactions, constraints, indexes, and row-level security.
@@ -40,11 +40,7 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173). PostgreSQL listens only on `127.0.0.1:54322` and stores data in the named `mindlarp-postgres` Docker volume.
 
-On a new installation, visit `/setup` and create the owner account. After that:
-
-- `/register` creates additional accounts.
-- `/login` signs in returning users.
-- `/forgot-password` starts SMTP password recovery.
+On a new installation, visit `/setup` and create the owner account. The original owner can sign in with that password at `/login`; OAuth-created accounts use their linked Google or GitHub provider. `/register` redirects to `/login`; password registration and email password recovery are disabled.
 - `/chat` opens the model chat.
 - `/console` manages keys, usage, billing, and settings.
 - `/docs` contains the developer documentation.
@@ -76,7 +72,7 @@ Next.js loads configuration from `.env`. The migration commands also read `.env`
 | `NODE_ENV` | No | Use `production` to enable secure session cookies. |
 | `HOST` | No | Listen address; defaults to `0.0.0.0`. |
 | `PORT` | No | HTTP port; development default is `5173`. |
-| `PUBLIC_URL` | Production | Public origin without a trailing slash. Used for OAuth callbacks, reset links, canonical URLs, and Stripe redirects. |
+| `PUBLIC_URL` | Production | Public origin without a trailing slash. Used for OAuth callbacks, canonical URLs, and Stripe redirects. |
 | `DATABASE_URL` | For PostgreSQL | Application PostgreSQL connection. When set, it takes precedence over JSON storage. Use a pooler for hosted Supabase. |
 | `DIRECT_URL` | Recommended | Direct PostgreSQL connection used by migration and import commands. Falls back to `DATABASE_URL`. |
 | `DATABASE_POOL_SIZE` | No | Maximum PostgreSQL connections per Node.js process; defaults to `10`. Multiply it by the replica count when sizing PostgreSQL. |
