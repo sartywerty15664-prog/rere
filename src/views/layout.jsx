@@ -1,7 +1,7 @@
 import { headers } from 'next/headers';
 import { StaticContent } from '@/components/static-content.jsx';
 import { TrustedController } from '@/components/trusted-controller.jsx';
-import { PrivacyControls } from '@/components/privacy-controls.jsx';
+import { CookiePreferences, PrivacyControls } from '@/components/privacy-controls.jsx';
 import { icon } from '../html.js';
 import { publicUrl } from '../server/config.js';
 
@@ -87,6 +87,6 @@ export function consoleLayout({ path, content, user, csrf }) {
         <div className="user-chip"><span className="avatar">{user.displayName.slice(0, 1).toUpperCase()}</span><span><strong>{user.displayName}</strong><small>{user.email}</small></span></div>
       </div>
     </aside>
-    <main id="main" className="console-main">{renderContent(content)}</main>
+    <main id="main" className="console-main">{renderContent(content)}{path === '/console/settings' ? <CookiePreferences /> : null}</main>
   </div>;
 }
