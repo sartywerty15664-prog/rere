@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { randomToken } from './security.js';
+import { publicUrl } from './server/config.js';
 
 export function oauthCookieName(provider) {
   return `ml_oauth_${provider}`;
@@ -11,7 +12,7 @@ export function beginOAuth(provider) {
   if (!clientId || !clientSecret) return null;
   const state = randomToken(24);
   const verifier = randomToken(32);
-  const redirectUri = `${process.env.PUBLIC_URL || 'http://localhost:5173'}/auth/${provider}/callback`;
+  const redirectUri = `${publicUrl()}/auth/${provider}/callback`;
   const payload = Buffer.from(JSON.stringify({ state, verifier })).toString('base64url');
   let authorizationUrl;
   if (provider === 'google') {
