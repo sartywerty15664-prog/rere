@@ -50,10 +50,6 @@ export async function getInferenceAccessError(userId) {
 
 export async function recordUsage({ key = null, userId = null, endpoint, model = null, status, usage = null }) {
   const store = await getStore();
-  await store.update((data) => {
-    const event = { id: randomUUID(), keyId: key?.id || null, userId: key?.userId || userId, endpoint, model, status, promptTokens: usage?.prompt_tokens || 0, completionTokens: usage?.completion_tokens || 0, totalTokens: usage?.total_tokens || 0, createdAt: new Date().toISOString() };
-    data.usage.unshift(event);
-    const retainedIds = new Set(data.usage.filter((item) => item.userId === event.userId).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, 10000).map((item) => item.id));
-    data.usage = data.usage.filter((item) => item.userId !== event.userId || retainedIds.has(item.id));
-  });
+  const event = { id: randomUUID(), keyId: key?.id || null, userId: key?.userId || userId, endpoint, model, status, promptTokens: usage?.prompt_tokens || 0, completionTokens: usage?.completion_tokens || 0, totalTokens: usage?.total_tokens || 0, createdAt: new Date().toISOString() };
+  await store.appendUsageEvent(event);
 }
