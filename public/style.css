@@ -292,3 +292,5 @@ input, select { width: 100%; background: #0f0f0f; color: var(--text); border: 1p
 .privacy-actions button.primary{background:var(--accent);border-color:var(--accent);color:#08080b}.privacy-settings{display:grid;gap:10px;margin:0 0 16px;color:var(--muted);font-size:12px}
 .privacy-settings label{display:flex;gap:9px;align-items:center}.privacy-settings input{accent-color:var(--accent)}
 @media(max-width:520px){.privacy-banner{inset:auto 10px 10px;width:calc(100vw - 20px);padding:17px}}
+
+.privacy-reopen{position:fixed;z-index:99;right:18px;bottom:18px;padding:9px 13px;border:1px solid var(--line-accent);border-radius:7px;background:#111118;color:var(--text);font:inherit;font-size:12px;cursor:pointer}
