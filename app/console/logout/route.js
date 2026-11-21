@@ -10,6 +10,6 @@ export async function POST(request) {
   if (error) return error;
   if (!requireCsrf(Object.fromEntries(body), auth)) return htmlResponse(notFoundContent(), 'Forbidden', 403);
   const store = await getStore();
-  await store.update((data) => { data.sessions = data.sessions.filter((item) => item.id !== auth.session.id); });
+  await store.deleteSession(auth.session.id);
   return setSessionCookie(formRedirect(request, '/login'), '', 0);
 }
