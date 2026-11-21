@@ -46,6 +46,29 @@ test('PostgreSQL migrations, production schema verification, writes, refresh, re
   assert.ok(second.data.conversations[0].createdAt);
   assert.equal(second.data.keys[0].scopes[0], 'models:read');
 
+  const targetedKeyId = randomUUID();
+  assert.equal(await store.createApiKey({
+    id: targetedKeyId, userId, name: 'Targeted key', hash: randomUUID(),
+    prefix: 'ml_sk_live_target', lastFour: 'targ', scopes: ['models:read'],
+    expiresAt: null, createdAt: timestamp, lastUsedAt: null, revokedAt: null,
+  }), true);
+  await store.touchApiKey(targetedKeyId);
+  assert.equal(await store.revokeApiKey(targetedKeyId, userId), true);
+  await store.appendConversationMessages(userId, [
+    { role: 'assistant', content: 'Targeted write', createdAt: timestamp },
+  ]);
+  await store.appendUsageEvent({
+    id: randomUUID(), keyId, userId, endpoint: '/chat', model: 'test',
+    status: 200, promptTokens: 1, completionTokens: 2, totalTokens: 3,
+    createdAt: timestamp,
+  });
+  await store.deleteSession(sessionId);
+  await second.refresh();
+  assert.equal(second.data.conversations[0].messages.length, 2);
+  assert.equal(second.data.usage.length, 2);
+  assert.equal(second.data.sessions.length, 0);
+  assert.ok(second.data.keys.find((item) => item.id === targetedKeyId).revokedAt);
+
   await store.update((data) => {
     data.keys[0].revokedAt = new Date().toISOString();
     data.keys[0].lastUsedAt = new Date().toISOString();
@@ -57,7 +80,7 @@ test('PostgreSQL migrations, production schema verification, writes, refresh, re
   await second.refresh();
   assert.ok(second.data.keys[0].revokedAt);
   assert.equal(second.data.users[0].billing.status, 'active');
-  assert.equal(second.data.conversations[0].messages.length, 2);
+  assert.equal(second.data.conversations[0].messages.length, 3);
   assert.equal(second.data.sessions.length, 0);
   assert.equal(second.data.passwordResets.length, 0);
 
