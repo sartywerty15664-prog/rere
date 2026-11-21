@@ -113,7 +113,8 @@ export function authContent({ mode, error = '', notice = '', values = {} }) {
 
 export function authPage(options) {
   const title = options.mode === 'setup' ? 'Set up workspace' : options.mode === 'register' ? 'Create account' : 'Sign in';
-  return publicLayout({ title, path: '/console', content: authContent(options), bodyClass: 'auth-page' });
+  const path = options.path || (options.mode === 'setup' ? '/setup' : options.mode === 'register' ? '/register' : '/login');
+  return publicLayout({ title, path, content: authContent(options), bodyClass: 'auth-page' });
 }
 
 export function forgotPasswordPage({ error = '', notice = '', email = '' } = {}) {
