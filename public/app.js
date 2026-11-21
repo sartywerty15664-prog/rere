@@ -65,6 +65,18 @@ export function initializePage() {
     }
   }));
 
+  document.querySelectorAll('.oauth-button').forEach((link) => on(link, 'click', async (event) => {
+    const consent = document.querySelector('[data-personal-data-consent]');
+    if (!consent) return;
+    if (!consent.checked) { event.preventDefault(); const error = document.querySelector('[data-consent-error]'); if (error) error.hidden = false; consent.focus(); return; }
+    event.preventDefault(); link.setAttribute('aria-busy', 'true');
+    try {
+      const response = await fetch('/privacy/consent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'personal-data', version: '2026-11-21' }), signal });
+      if (!response.ok) throw new Error('Consent could not be saved');
+      window.location.assign(link.href);
+    } catch { link.removeAttribute('aria-busy'); const error = document.querySelector('[data-consent-error]'); if (error) { error.textContent = 'Could not save your consent. Please try again.'; error.hidden = false; } }
+  }));
+  document.querySelector('[data-personal-data-consent]')?.addEventListener('change', () => { const error = document.querySelector('[data-consent-error]'); if (error) error.hidden = true; }, { signal });
   const chatForm = document.getElementById('chat-form');
   if (chatForm) {
     const input = document.getElementById('chat-input');
