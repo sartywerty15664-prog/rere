@@ -51,7 +51,7 @@ export function initializePage() {
     const target = button.dataset.copyTarget ? document.getElementById(button.dataset.copyTarget) : null;
     const text = button.dataset.copyText ?? target?.textContent ?? '';
     try {
-      await copyText(text.trim());
+      await copyText(text.trim().replace(/^[\t ]*\$[\t ]?/gm, '').trim());
       const original = button.innerHTML;
       button.innerHTML = '<span class="copy-success">Copied</span>';
       button.setAttribute('aria-label', 'Copied');
