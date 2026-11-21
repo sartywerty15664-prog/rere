@@ -250,38 +250,35 @@ test('owner setup validates input and establishes a persistent session', async (
   assert.equal((await fetch(`${origin}/setup`, { redirect: 'manual' })).headers.get('location'), '/login');
 });
 
-test('email/password login, registration, and recovery endpoints are disabled without changing account data', async (t) => {
+test('owner password login is protected while member registration and recovery remain disabled', async (t) => {
   const { origin, readData } = await startApp(t);
-  const cookie = await setupOwner(origin);
+  await setupOwner(origin);
 
-  const disabledRequests = [
-    ['/actions/auth/login', { email: 'ada@example.com', password }],
+  const login = await post(origin, '/actions/auth/login', { email: 'ada@example.com', password });
+  assert.equal(login.status, 303);
+  assert.equal(login.headers.get('location'), '/console');
+  assert.match(login.headers.get('set-cookie'), /ml_session=/);
+
+  const wrongPassword = await post(origin, '/actions/auth/login', { email: 'ada@example.com', password: 'incorrect-password' });
+  assert.equal(wrongPassword.status, 303);
+  assert.match(wrongPassword.headers.get('location'), /error=invalid/);
+
+  const crossOrigin = await post(origin, '/actions/auth/login', { email: 'ada@example.com', password }, '', 'https://evil.example');
+  assert.equal(crossOrigin.status, 403);
+
+  for (const [path, body] of [
     ['/actions/auth/register', { displayName: 'Grace Hopper', email: 'grace@example.com', password, confirmPassword: password }],
     ['/actions/auth/forgot-password', { email: 'ada@example.com' }],
     ['/actions/auth/reset-password', { token: 'not-a-real-token', password, confirmPassword: password }],
-  ];
-
-  for (const [path, body] of disabledRequests) {
-    const response = await post(origin, path, body, cookie, 'https://evil.example');
-    assert.equal(response.status, 410, path);
+  ]) {
+    assert.equal((await post(origin, path, body)).status, 410, path);
   }
 
   assert.equal((await readData()).users.length, 1);
-
   const emptyApp = await startApp(t);
-  const setupResponse = await post(
-    emptyApp.origin,
-    '/actions/auth/setup',
-    {
-      displayName: 'Attacker',
-      email: 'attacker@example.com',
-      password,
-      confirmPassword: password,
-    },
-    '',
-    'https://evil.example'
-  );
-
+  const setupResponse = await post(emptyApp.origin, '/actions/auth/setup', {
+    displayName: 'Attacker', email: 'attacker@example.com', password, confirmPassword: password,
+  }, '', 'https://evil.example');
   assert.equal(setupResponse.status, 403);
   assert.equal((await emptyApp.readData()).users.length, 0);
 });
@@ -384,7 +381,7 @@ test('chat persists real upstream answers and billing setup reports missing Stri
   assert.equal((await post(origin, '/webhooks/stripe', {})).status, 503);
 });
 
-test('email/password login and registration remain disabled while logout works', async (t) => {
+test('owner password login and registration policy remain enforced while logout works', async (t) => {
   const { origin, readData } = await startApp(t);
   const cookie = await setupOwner(origin);
 
@@ -697,19 +694,21 @@ test('upstream errors and oversized responses are bounded and do not leak provid
   }
 });
 
-test('repeated password-login requests cannot bypass the OAuth-only sign-in policy', async (t) => {
+test('repeated invalid owner password attempts are rate limited', async (t) => {
   const { origin, readData } = await startApp(t);
   await setupOwner(origin);
 
-  for (let attempt = 0; attempt < 12; attempt += 1) {
-    const response = await post(origin, '/actions/auth/login', {
+  let response;
+  for (let attempt = 0; attempt < 9; attempt += 1) {
+    response = await post(origin, '/actions/auth/login', {
       email: 'ada@example.com',
-      password,
+      password: 'incorrect-password',
     });
-    assert.equal(response.status, 410);
   }
+  assert.match(response.headers.get('location'), /error=limit/);
 
   const data = await readData();
   assert.equal(data.users.length, 1);
   assert.equal(data.sessions.length, 1);
 });
+
