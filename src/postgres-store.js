@@ -133,6 +133,9 @@ export class PostgresStore {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
+      // Coordinate with the snapshot-based update transaction to prevent it
+      // from re-inserting a session that cleanup just removed.
+      await client.query('SELECT pg_advisory_xact_lock(741852963)');
       await client.query('DELETE FROM sessions WHERE expires_at <= $1', [new Date(now).toISOString()]);
       await client.query('COMMIT');
       this.data.sessions = this.data.sessions.filter((session) => Date.parse(session.expiresAt) > now);
