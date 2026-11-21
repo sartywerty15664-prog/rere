@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import { migrateDatabase, verifyDatabaseMigrations } from './server/database.js';
