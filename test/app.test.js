@@ -413,10 +413,10 @@ test('email/password login and registration remain disabled while logout works',
 
 test('Google and GitHub OAuth report missing configuration or redirect with protected state', async (t) => {
   const unconfigured = await startApp(t);
-  assert.equal((await fetch(`${unconfigured.origin}/auth/google`)).status, 503);
+  assert.equal((await fetch(`${unconfigured.origin}/auth/google`, { headers: { Cookie: 'ml_personal_data_consent=2026-11-21' } })).status, 503);
   const configured = await startApp(t, { env: { GOOGLE_CLIENT_ID: 'client-id', GOOGLE_CLIENT_SECRET: 'secret', GITHUB_CLIENT_ID: 'github-id', GITHUB_CLIENT_SECRET: 'github-secret', PUBLIC_URL: 'https://mindlarp.test' } });
   for (const provider of ['google', 'github']) {
-    const response = await fetch(`${configured.origin}/auth/${provider}`, { redirect: 'manual' });
+    const response = await fetch(`${configured.origin}/auth/${provider}`, { redirect: 'manual', headers: { Cookie: 'ml_personal_data_consent=2026-11-21' } });
     assert.equal(response.status, 302);
     const location = new URL(response.headers.get('location'));
     assert.equal(location.hostname, provider === 'google' ? 'accounts.google.com' : 'github.com');
@@ -586,7 +586,7 @@ test('OAuth never attaches a verified identity to an existing password account b
   assert.equal(response.status, 303);
 
   async function completeGoogle(code) {
-    const begin = await fetch(`${origin}/auth/google`, { redirect: 'manual' });
+    const begin = await fetch(`${origin}/auth/google`, { redirect: 'manual', headers: { Cookie: 'ml_personal_data_consent=2026-11-21' } });
     assert.equal(begin.status, 302);
     const state = new URL(begin.headers.get('location')).searchParams.get('state');
     const cookie = begin.headers.get('set-cookie').split(';')[0];
@@ -603,6 +603,7 @@ test('OAuth never attaches a verified identity to an existing password account b
   assert.equal(data.users[0].identities.length, 0);
 
   response = await completeGoogle('oauth');
+  assert.equal(response.status, 303);
   assert.equal(response.headers.get('location'), '/console');
   assert.match(response.headers.get('set-cookie'), /ml_session=/);
   data = await readData();
