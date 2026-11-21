@@ -32,17 +32,19 @@ export class Store {
 
   async update(mutator) {
     const operation = this.writeQueue.then(async () => {
-      const result = await mutator(this.data);
-      await this.persist();
+      const draft = structuredClone(this.data);
+      const result = await mutator(draft);
+      await this.persist(draft);
+      this.data = draft;
       return result;
     });
     this.writeQueue = operation.catch(() => {});
     return operation;
   }
 
-  async persist() {
+  async persist(data = this.data) {
     const temporary = `${this.filePath}.${process.pid}.tmp`;
-    await writeFile(temporary, JSON.stringify(this.data, null, 2), { mode: 0o600 });
+    await writeFile(temporary, JSON.stringify(data, null, 2), { mode: 0o600 });
     await rename(temporary, this.filePath);
   }
 
