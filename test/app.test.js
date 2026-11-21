@@ -249,37 +249,22 @@ test('owner setup validates input and establishes a persistent session', async (
   assert.equal((await fetch(`${origin}/setup`, { redirect: 'manual' })).headers.get('location'), '/login');
 });
 
-test('owner password login is protected while member registration and recovery remain disabled', async (t) => {
-  const { origin, readData } = await startApp(t);
+test('password sign-in is disabled; login only offers social providers', async (t) => {
+  const { origin } = await startApp(t);
   await setupOwner(origin);
-
-  const login = await post(origin, '/actions/auth/login', { email: 'ada@example.com', password });
-  assert.equal(login.status, 303);
-  assert.equal(login.headers.get('location'), '/console');
-  assert.match(login.headers.get('set-cookie'), /ml_session=/);
-
-  const wrongPassword = await post(origin, '/actions/auth/login', { email: 'ada@example.com', password: 'incorrect-password' });
-  assert.equal(wrongPassword.status, 303);
-  assert.match(wrongPassword.headers.get('location'), /error=invalid/);
-
-  const crossOrigin = await post(origin, '/actions/auth/login', { email: 'ada@example.com', password }, '', 'https://evil.example');
-  assert.equal(crossOrigin.status, 403);
-
+  const page = await fetch(`${origin}/login`);
+  assert.equal(page.status, 200);
+  const html = await page.text();
+  assert.match(html, /href="\/auth\/google"/);
+  assert.match(html, /href="\/auth\/github"/);
+  assert.doesNotMatch(html, /type="password"/);
+  assert.doesNotMatch(html, /name="email"/);
+  assert.equal((await post(origin, '/actions/auth/login', { email: 'ada@example.com', password })).status, 410);
   for (const [path, body] of [
     ['/actions/auth/register', { displayName: 'Grace Hopper', email: 'grace@example.com', password, confirmPassword: password }],
     ['/actions/auth/forgot-password', { email: 'ada@example.com' }],
     ['/actions/auth/reset-password', { token: 'not-a-real-token', password, confirmPassword: password }],
-  ]) {
-    assert.equal((await post(origin, path, body)).status, 410, path);
-  }
-
-  assert.equal((await readData()).users.length, 1);
-  const emptyApp = await startApp(t);
-  const setupResponse = await post(emptyApp.origin, '/actions/auth/setup', {
-    displayName: 'Attacker', email: 'attacker@example.com', password, confirmPassword: password,
-  }, '', 'https://evil.example');
-  assert.equal(setupResponse.status, 403);
-  assert.equal((await emptyApp.readData()).users.length, 0);
+  ]) assert.equal((await post(origin, path, body)).status, 410, path);
 });
 
 test('API keys are scoped, hashed, validated, protected by CSRF, and revocable', async (t) => {
