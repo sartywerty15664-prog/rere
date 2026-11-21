@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { migrateDatabase, verifyDatabaseMigrations } from './server/database.js';
 
 const iso = (value) => value ? new Date(value).toISOString() : null;
@@ -95,9 +96,9 @@ export class PostgresStore {
           if (removed.length) await client.query(`DELETE FROM ${definition.table} WHERE id = ANY($1::uuid[])`, [removed]);
         }
         for (const [collection, definition] of Object.entries(definitions)) {
-          const previous = new Map(before[collection].map((item) => [item.id, JSON.stringify(item)]));
+          const previous = new Map(before[collection].map((item) => [item.id, item]));
           for (const item of data[collection]) {
-            if (previous.get(item.id) === JSON.stringify(item)) continue;
+            if (previous.has(item.id) && isDeepStrictEqual(previous.get(item.id), item)) continue;
             const columns = Object.values(definition.fields);
             const placeholders = columns.map((_, index) => `$${index + 1}`);
             const updates = columns.filter((column) => column !== 'id').map((column) => `${column} = EXCLUDED.${column}`);
