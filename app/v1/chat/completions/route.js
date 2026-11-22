@@ -65,7 +65,7 @@ export async function POST(request) {
     if (!completion || Array.isArray(completion) || typeof completion !== 'object') return apiError(502, 'The inference service returned an invalid response.', 'upstream_error', 'invalid_upstream_response');
     return new Response(text, { status: response.status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
   } catch {
-    await recordUsage({ key: auth.key, endpoint: '/v1/chat/completions', model: model.id, status: 502 });
+    await recordUsage({ key: auth.key, endpoint: '/v1/chat/completions', model: model.id, status: 502, reservationId });
     return apiError(502, 'The configured inference service could not be reached.', 'upstream_error', 'upstream_unavailable');
   }
 }
