@@ -3,7 +3,7 @@ import { getCurrentAuth, requireCsrf } from '@/src/server/auth.js';
 import { consumeRateLimit } from '@/src/server/rate-limit.js';
 import { apiError, readBody, readJson, json, rateLimitError } from '@/src/server/responses.js';
 import { getStore } from '@/src/server/store.js';
-import { getInferenceAccessError, recordUsage } from '@/src/server/usage.js';
+import { reserveInferenceAccess, recordUsage } from '@/src/server/usage.js';
 
 export const runtime = 'nodejs';
 
@@ -21,19 +21,23 @@ export async function POST(request) {
   const model = models.find((item) => item.id === body.model);
   const content = typeof body.message === 'string' ? body.message.trim() : '';
   if (!model || !content || content.length > 16000) return apiError(400, 'Choose a model and enter a message of up to 16,000 characters.');
-  if (!process.env.MINDLARP_UPSTREAM_URL) return apiError(503, 'Model inference is not configured yet. Ask the administrator to set MINDLARP_UPSTREAM_URL.', 'service_unavailable', 'inference_not_configured');
-  const accessError = await getInferenceAccessError(user.id);
-  if (accessError) return apiError(...accessError);
+  if (!process.env.MINDLARP_UPSTREAM_URL) {
+    await recordUsage({ userId: user.id, endpoint: '/chat', model: model.id, status: 503 });
+    return apiError(503, 'Model inference is not configured yet. Ask the administrator to set MINDLARP_UPSTREAM_URL.', 'service_unavailable', 'inference_not_configured');
+  }
+  const reservation = await reserveInferenceAccess(user.id, '/chat');
+  if (reservation.error) return apiError(...reservation.error);
+  const reservationId = reservation.reservationId;
   try {
     const response = await fetch(`${process.env.MINDLARP_UPSTREAM_URL.replace(/\/$/, '')}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(process.env.MINDLARP_UPSTREAM_KEY ? { Authorization: `Bearer ${process.env.MINDLARP_UPSTREAM_KEY}` } : {}) }, body: JSON.stringify({ model: model.id, messages: [...(conversation?.messages || []).map(({ role, content: text }) => ({ role, content: text })), { role: 'user', content }], max_tokens: 4096 }), signal: AbortSignal.timeout(60000) });
     const { text, error: responseError } = await readBody(response, 1_048_576);
     if (responseError) {
-      await recordUsage({ userId: user.id, endpoint: '/chat', model: model.id, status: 502 });
+      await recordUsage({ userId: user.id, endpoint: '/chat', model: model.id, status: 502, reservationId });
       return apiError(502, 'The model service returned an oversized response.', 'upstream_error', 'upstream_response_too_large');
     }
     let completion;
     try { completion = JSON.parse(text); } catch {}
-    await recordUsage({ userId: user.id, endpoint: '/chat', model: model.id, status: response.status, usage: completion?.usage });
+    await recordUsage({ userId: user.id, endpoint: '/chat', model: model.id, status: response.status, usage: completion?.usage, reservationId });
     const answer = completion?.choices?.[0]?.message?.content;
     if (!response.ok) return apiError(502, 'The model service rejected the request.', 'upstream_error', 'upstream_request_failed');
     if (typeof answer !== 'string' || answer.length > 100_000) return apiError(502, 'The model service returned an invalid response.', 'upstream_error', 'invalid_upstream_response');
