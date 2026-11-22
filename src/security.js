@@ -2,6 +2,7 @@ import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } fr
 import { promisify } from 'node:util';
 
 const scrypt = promisify(scryptCallback);
+const SCRYPT_OPTIONS = { N: 1 << 17, r: 8, p: 1, maxmem: 256 * 1024 * 1024 };
 
 export function randomToken(bytes = 32) {
   return randomBytes(bytes).toString('base64url');
@@ -13,12 +14,12 @@ export function hashToken(token) {
 
 export async function hashPassword(password) {
   const salt = randomBytes(16).toString('hex');
-  const derived = await scrypt(password, salt, 64);
+  const derived = await scrypt(password, salt, 64, SCRYPT_OPTIONS);
   return { salt, hash: derived.toString('hex') };
 }
 
 export async function verifyPassword(password, salt, expectedHash) {
-  const derived = await scrypt(password, salt, 64);
+  const derived = await scrypt(password, salt, 64, SCRYPT_OPTIONS);
   const expected = Buffer.from(expectedHash, 'hex');
   return expected.length === derived.length && timingSafeEqual(derived, expected);
 }
