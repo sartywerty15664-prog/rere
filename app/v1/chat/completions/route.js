@@ -20,6 +20,9 @@ export async function POST(request) {
   if (body.temperature !== undefined && (typeof body.temperature !== 'number' || !Number.isFinite(body.temperature) || body.temperature < 0 || body.temperature > 2)) return apiError(400, 'temperature must be a number between 0 and 2.');
   if (body.max_tokens !== undefined && (!Number.isInteger(body.max_tokens) || body.max_tokens < 1 || body.max_tokens > 32768)) return apiError(400, 'max_tokens must be an integer between 1 and 32768.');
   if (body.stream !== undefined && typeof body.stream !== 'boolean') return apiError(400, 'stream must be a boolean.');
+  if (body.tools !== undefined && (!Array.isArray(body.tools) || body.tools.length > 128 || body.tools.some((tool) => !tool || typeof tool !== 'object'))) return apiError(400, 'tools must be an array of at most 128 tool definitions.');
+  if (body.tool_choice !== undefined && !(typeof body.tool_choice === 'string' || (body.tool_choice && typeof body.tool_choice === 'object' && !Array.isArray(body.tool_choice)))) return apiError(400, 'tool_choice must be a string or object.');
+  if (body.response_format !== undefined && (!body.response_format || typeof body.response_format !== 'object' || Array.isArray(body.response_format))) return apiError(400, 'response_format must be an object.');
   if (!process.env.MINDLARP_UPSTREAM_URL) {
     await recordUsage({ key: auth.key, endpoint: '/v1/chat/completions', model: model.id, status: 503 });
     return apiError(503, 'Model inference is not configured. Set MINDLARP_UPSTREAM_URL on the server.', 'service_unavailable', 'inference_not_configured');
@@ -27,15 +30,24 @@ export async function POST(request) {
   const accessError = await getInferenceAccessError(auth.key.userId);
   if (accessError) return apiError(...accessError);
   const upstreamBody = { model: model.id, messages: body.messages, max_tokens: 4096 };
-  for (const field of ['temperature', 'max_tokens', 'stream']) {
+  for (const field of ['temperature', 'max_tokens', 'stream', 'tools', 'tool_choice', 'response_format']) {
     if (body[field] !== undefined) upstreamBody[field] = body[field];
   }
   try {
-    const response = await fetch(`${process.env.MINDLARP_UPSTREAM_URL.replace(/\/$/, '')}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(process.env.MINDLARP_UPSTREAM_KEY ? { Authorization: `Bearer ${process.env.MINDLARP_UPSTREAM_KEY}` } : {}) },
-      body: JSON.stringify(upstreamBody), signal: AbortSignal.timeout(60000),
-    });
+    const controller = new AbortController();
+    const connectionTimeout = setTimeout(() => controller.abort(), 60_000);
+    let response;
+    try {
+      response = await fetch(`${process.env.MINDLARP_UPSTREAM_URL.replace(/\/$/, '')}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(process.env.MINDLARP_UPSTREAM_KEY ? { Authorization: `Bearer ${process.env.MINDLARP_UPSTREAM_KEY}` } : {}) },
+        body: JSON.stringify(upstreamBody), signal: controller.signal,
+      });
+    } finally {
+      // Once headers arrive, do not abort the response body: SSE streams may
+      // legitimately run longer than the connection-establishment timeout.
+      clearTimeout(connectionTimeout);
+    }
     if (body.stream && response.ok && response.body) {
       await recordUsage({ key: auth.key, endpoint: '/v1/chat/completions', model: model.id, status: response.status });
       return new Response(response.body, { status: response.status, headers: { 'Content-Type': response.headers.get('content-type') || 'text/event-stream', 'Cache-Control': 'no-store' } });
