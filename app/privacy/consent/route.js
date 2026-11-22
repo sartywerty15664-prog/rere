@@ -1,9 +1,10 @@
 import { CONSENT_VERSION } from '@/src/consent.js';
 import { createPersonalDataConsent } from '@/src/server/consent.js';
 import { json, readJson } from '@/src/server/responses.js';
+import { publicUrl } from '@/src/server/config.js';
 
 export async function POST(request) {
-  const expectedOrigin = new URL(request.url).origin;
+  const expectedOrigin = new URL(publicUrl()).origin;
   const origin = request.headers.get('origin');
   const fetchSite = request.headers.get('sec-fetch-site');
   if (!origin || origin !== expectedOrigin || (fetchSite && fetchSite !== 'same-origin')) {
