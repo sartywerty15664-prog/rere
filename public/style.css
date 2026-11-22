@@ -299,3 +299,18 @@ input, select { width: 100%; background: #0f0f0f; color: var(--text); border: 1p
   .privacy-banner { position: static; width: auto; margin: 12px; inset: auto; }
   .icon-button, .button-danger-small, .copy-button { min-width: 44px; min-height: 44px; }
 }
+
+/* Bilingual legal documents */
+.legal-document .legal-byline{color:var(--subtle);font:10px var(--mono);margin:14px 0 0}
+.legal-lang{display:flex;flex-wrap:wrap;gap:10px;margin:26px 0 8px}
+.legal-lang a{padding:8px 14px;border:1px solid var(--line-accent);border-radius:5px;color:var(--muted);font:10px var(--mono)}
+.legal-lang a[aria-current="page"]{color:var(--accent);border-color:var(--accent)}
+.legal-section{margin-top:30px}
+.legal-document h2{display:flex;gap:10px;align-items:baseline}
+.legal-number{color:var(--accent);font:500 12px var(--mono);flex:none}
+.legal-clause p{margin:12px 0;font-size:13px;line-height:1.75}
+.legal-list{margin:10px 0 14px;padding-left:22px;color:var(--muted);font-size:13px;line-height:1.8}
+.legal-index{display:grid;gap:10px;margin-top:30px}
+.legal-index a{display:flex;justify-content:space-between;gap:16px;padding:18px;border:1px solid var(--line-accent);border-radius:8px;color:var(--text)}
+.legal-index a span{color:var(--muted);font:10px var(--mono)}
+@media(max-width:520px){.legal-index a{flex-direction:column;gap:6px}}
