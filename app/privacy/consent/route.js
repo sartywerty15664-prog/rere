@@ -1,4 +1,5 @@
 import { CONSENT_VERSION } from '@/src/consent.js';
+import { createPersonalDataConsent } from '@/src/server/consent.js';
 import { json, readJson } from '@/src/server/responses.js';
 
 export async function POST(request) {
@@ -22,7 +23,7 @@ export async function POST(request) {
 
   if (body.type === 'personal-data' && body.version === CONSENT_VERSION) {
     const response = json({ ok: true });
-    response.cookies.set('ml_personal_data_consent', CONSENT_VERSION, options);
+    response.cookies.set('ml_personal_data_consent', createPersonalDataConsent(), options);
     return response;
   }
 
