@@ -16,30 +16,53 @@ export async function POST(request) {
   } catch {
     return json({ error: 'Invalid webhook signature.' }, 400);
   }
-  const object = event.data.object;
-  const supported = ['checkout.session.completed', 'customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted'].includes(event.type);
+
+  const object = event.data?.object || {};
+  const supported = [
+    'checkout.session.completed',
+    'customer.subscription.created',
+    'customer.subscription.updated',
+    'customer.subscription.deleted',
+  ].includes(event.type);
   if (!supported) return json({ received: true });
+
+  const isSubscriptionEvent = event.type.startsWith('customer.subscription.');
   const matchedItem = object.items?.data?.find((item) => item.price?.id === process.env.STRIPE_PRICE_ID);
-  if (event.type.startsWith('customer.subscription.') && !matchedItem) {
-    return json({ error: 'Unexpected subscription price.' }, 400);
-  }
+  // A validly signed event for an unexpected price is terminal for this app.
+  // Acknowledge it so Stripe does not retry a permanently unprocessable event.
+  if (isSubscriptionEvent && !matchedItem) return json({ received: true, ignored: 'unexpected_price' });
+
+  const customerId = typeof object.customer === 'string' ? object.customer : object.customer?.id;
   const currentPeriodEnd = object.current_period_end
     ?? matchedItem?.current_period_end
     ?? object.items?.data?.[0]?.current_period_end;
+
   const store = await getStore();
-  const user = store.data.users.find((item) => item.id === object.client_reference_id || item.id === object.metadata?.userId || item.billing?.stripeCustomerId === object.customer);
+  const user = store.data.users.find((item) => {
+    if (item.id === object.client_reference_id || item.id === object.metadata?.userId) return true;
+    return Boolean(customerId && item.billing?.stripeCustomerId && item.billing.stripeCustomerId === customerId);
+  });
   if (!user) return json({ received: true });
-  if (event.type.startsWith('customer.subscription.') && user.billing?.subscriptionId && user.billing.subscriptionId !== object.id) return json({ received: true });
-  if (event.type === 'checkout.session.completed' && user.billing?.subscriptionId === object.subscription && user.billing.status && user.billing.status !== 'pending') return json({ received: true });
+
+  if (isSubscriptionEvent && user.billing?.subscriptionId && user.billing.subscriptionId !== object.id) {
+    return json({ received: true });
+  }
+  if (event.type === 'checkout.session.completed'
+    && user.billing?.subscriptionId === object.subscription
+    && user.billing.status
+    && user.billing.status !== 'pending') {
+    return json({ received: true });
+  }
 
   await store.update((data) => {
     const stored = data.users.find((item) => item.id === user.id);
+    if (!stored) return;
     const billing = stored.billing || {};
     if (billing.processedStripeEventIds?.includes(event.id)) return;
     if (Number.isFinite(event.created) && Number.isFinite(billing.lastStripeEventCreated) && event.created < billing.lastStripeEventCreated) return;
     stored.billing = {
       ...billing,
-      stripeCustomerId: String(object.customer || billing.stripeCustomerId || ''),
+      stripeCustomerId: customerId || billing.stripeCustomerId || '',
       subscriptionId: object.subscription || object.id,
       status: event.type === 'checkout.session.completed' ? 'pending' : object.status,
       priceId: matchedItem?.price?.id || billing.priceId || process.env.STRIPE_PRICE_ID,

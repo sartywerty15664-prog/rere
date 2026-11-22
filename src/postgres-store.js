@@ -90,6 +90,7 @@ export class PostgresStore {
 
   async refresh() {
     this.data = await this.read();
+    this.lastRefreshAt = Date.now();
     return this;
   }
 
@@ -124,6 +125,7 @@ export class PostgresStore {
           }
           await client.query('COMMIT');
           this.data = data;
+          this.lastRefreshAt = Date.now();
           this.lastWriteError = null;
           return result;
         } catch (error) {

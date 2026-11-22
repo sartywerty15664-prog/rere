@@ -14,13 +14,13 @@ import { publicUrl } from '../src/server/config.js';
 const password = 'a-very-good-password';
 const root = resolve(import.meta.dirname, '..');
 const configurationKeys = [
-  'MINDLARP_UPSTREAM_URL', 'MINDLARP_UPSTREAM_KEY', 'GOOGLE_CLIENT_ID',
+  'MINDLARP_UPSTREAM_URL', 'MINDLARP_UPSTREAM_KEY', 'MINDLARP_CONSENT_SECRET', 'GOOGLE_CLIENT_ID',
   'GOOGLE_CLIENT_SECRET', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET',
   'STRIPE_SECRET_KEY', 'STRIPE_PRICE_ID', 'STRIPE_WEBHOOK_SECRET',
   'SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_REQUIRE_TLS', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM',
   'ALLOW_INFERENCE_WITHOUT_SUBSCRIPTION', 'INFERENCE_DAILY_REQUEST_LIMIT', 'ALLOW_HTTP_UPSTREAM',
   'OPENWEBUI_URL', 'OPENWEBUI_API_BASE_URL', 'OPENWEBUI_PORT', 'MINDLARP_OPENWEBUI_API_KEY',
-  'DATABASE_URL', 'DIRECT_URL', 'DATABASE_SSL', 'DATABASE_SSL_REJECT_UNAUTHORIZED', 'DATABASE_POOL_SIZE',
+  'DATABASE_URL', 'DIRECT_URL', 'DATABASE_SSL', 'DATABASE_SSL_REJECT_UNAUTHORIZED', 'DATABASE_POOL_SIZE', 'VERCEL', 'VERCEL_ENV', 'VERCEL_URL',
 ];
 
 async function listen(server) {
@@ -49,6 +49,7 @@ async function startApp(t, options = {}) {
       NODE_ENV: 'production',
       NEXT_TELEMETRY_DISABLED: '1',
       ALLOW_JSON_PRODUCTION: 'true',
+      MINDLARP_CONSENT_SECRET: 'test-only-consent-signing-secret',
       ALLOW_INFERENCE_WITHOUT_SUBSCRIPTION: 'false',
       INFERENCE_DAILY_REQUEST_LIMIT: '1000',
       DATA_FILE: dataFile,
@@ -123,6 +124,16 @@ async function post(origin, path, body, cookie = '', requestOrigin = origin) {
     },
     body: params,
   });
+}
+
+async function consentCookie(origin, requestOrigin = origin) {
+  const response = await fetch(`${origin}/privacy/consent`, {
+    method: 'POST',
+    headers: { Origin: requestOrigin, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'personal-data', version: '2026-11-21' }),
+  });
+  assert.equal(response.status, 200);
+  return response.headers.get('set-cookie').split(';')[0];
 }
 
 async function setupOwner(origin) {
@@ -249,7 +260,7 @@ test('owner setup validates input and establishes a persistent session', async (
   assert.equal((await fetch(`${origin}/setup`, { redirect: 'manual' })).headers.get('location'), '/login');
 });
 
-test('password sign-in is disabled; login only offers social providers', async (t) => {
+test('login stays social-first while owner password sign-in has a separate page', async (t) => {
   const { origin } = await startApp(t);
   await setupOwner(origin);
   const page = await fetch(`${origin}/login`);
@@ -259,7 +270,11 @@ test('password sign-in is disabled; login only offers social providers', async (
   assert.match(html, /href="\/auth\/github"/);
   assert.doesNotMatch(html, /type="password"/);
   assert.doesNotMatch(html, /name="email"/);
-  assert.equal((await post(origin, '/actions/auth/login', { email: 'ada@example.com', password })).status, 410);
+  assert.match(html, /href="\/owner-login"/);
+  const ownerPage = await fetch(`${origin}/owner-login`);
+  assert.equal(ownerPage.status, 200);
+  assert.match(await ownerPage.text(), /type="password"/);
+  assert.equal((await post(origin, '/actions/auth/login', { email: 'ada@example.com', password })).status, 303);
   for (const [path, body] of [
     ['/actions/auth/register', { displayName: 'Grace Hopper', email: 'grace@example.com', password, confirmPassword: password }],
     ['/actions/auth/forgot-password', { email: 'ada@example.com' }],
@@ -394,10 +409,12 @@ test('owner password login and registration policy remain enforced while logout 
 
 test('Google and GitHub OAuth report missing configuration or redirect with protected state', async (t) => {
   const unconfigured = await startApp(t);
-  assert.equal((await fetch(`${unconfigured.origin}/auth/google`, { headers: { Cookie: 'ml_personal_data_consent=2026-11-21' } })).status, 503);
+  const unconfiguredConsent = await consentCookie(unconfigured.origin);
+  assert.equal((await fetch(`${unconfigured.origin}/auth/google`, { headers: { Cookie: unconfiguredConsent } })).status, 503);
   const configured = await startApp(t, { env: { GOOGLE_CLIENT_ID: 'client-id', GOOGLE_CLIENT_SECRET: 'secret', GITHUB_CLIENT_ID: 'github-id', GITHUB_CLIENT_SECRET: 'github-secret', PUBLIC_URL: 'https://mindlarp.test' } });
+  const configuredConsent = await consentCookie(configured.origin, 'https://mindlarp.test');
   for (const provider of ['google', 'github']) {
-    const response = await fetch(`${configured.origin}/auth/${provider}`, { redirect: 'manual', headers: { Cookie: 'ml_personal_data_consent=2026-11-21' } });
+    const response = await fetch(`${configured.origin}/auth/${provider}`, { redirect: 'manual', headers: { Cookie: configuredConsent } });
     assert.equal(response.status, 302);
     const location = new URL(response.headers.get('location'));
     assert.equal(location.hostname, provider === 'google' ? 'accounts.google.com' : 'github.com');
@@ -508,7 +525,7 @@ test('signed Stripe webhook updates billing and rejects an invalid signature', a
     status: 'active',
     items: { data: [{ price: { id: 'price_other' } }] },
   }, { id: 'evt_subscription_wrong_price', created: 3000 });
-  assert.equal(response.status, 400);
+  assert.equal(response.status, 200);
   assert.equal((await readData()).users[0].billing.status, 'canceled');
 
   const invalidPayload = JSON.stringify({
@@ -566,8 +583,9 @@ test('OAuth never attaches a verified identity to an existing password account b
   let response = await post(origin, '/actions/auth/setup', { displayName: 'Victim', email: 'victim@example.com', password, confirmPassword: password });
   assert.equal(response.status, 303);
 
+  const personalDataConsent = await consentCookie(origin);
   async function completeGoogle(code) {
-    const begin = await fetch(`${origin}/auth/google`, { redirect: 'manual', headers: { Cookie: 'ml_personal_data_consent=2026-11-21' } });
+    const begin = await fetch(`${origin}/auth/google`, { redirect: 'manual', headers: { Cookie: personalDataConsent } });
     assert.equal(begin.status, 302);
     const state = new URL(begin.headers.get('location')).searchParams.get('state');
     const cookie = begin.headers.get('set-cookie').split(';')[0];

@@ -1,18 +1,39 @@
+import { CONSENT_VERSION } from '../src/consent.js';
+
 export function initializePage() {
   const controller = new AbortController();
   const { signal } = controller;
   const timers = new Set();
   const on = (element, event, handler) => element?.addEventListener(event, handler, { signal });
   const navToggle = document.querySelector('.nav-toggle');
-  const closeNavigation = () => {
-    document.body.classList.remove('nav-open');
-    navToggle?.setAttribute('aria-expanded', 'false');
+  const publicRail = document.querySelector('.public-rail');
+  const isMobileNavigation = () => window.matchMedia('(max-width: 760px)').matches;
+  const setNavigation = (open) => {
+    document.body.classList.toggle('nav-open', open);
+    navToggle?.setAttribute('aria-expanded', String(open));
+    if (publicRail) {
+      publicRail.inert = isMobileNavigation() && !open;
+      publicRail.setAttribute('aria-hidden', String(isMobileNavigation() && !open));
+    }
+    document.body.style.overflow = open && isMobileNavigation() ? 'hidden' : '';
   };
-  on(navToggle, 'click', () => {
-    const open = document.body.classList.toggle('nav-open');
-    navToggle.setAttribute('aria-expanded', String(open));
-  });
+  const closeNavigation = () => setNavigation(false);
+  setNavigation(false);
+  on(navToggle, 'click', () => setNavigation(!document.body.classList.contains('nav-open')));
   document.querySelectorAll('.public-rail a').forEach((link) => on(link, 'click', closeNavigation));
+  on(document, 'pointerdown', (event) => {
+    if (document.body.classList.contains('nav-open')
+      && !publicRail?.contains(event.target)
+      && !navToggle?.contains(event.target)) closeNavigation();
+  });
+  on(window, 'resize', () => {
+    if (!isMobileNavigation()) {
+      if (publicRail) { publicRail.inert = false; publicRail.setAttribute('aria-hidden', 'false'); }
+      document.body.style.overflow = '';
+    } else if (!document.body.classList.contains('nav-open')) {
+      if (publicRail) { publicRail.inert = true; publicRail.setAttribute('aria-hidden', 'true'); }
+    }
+  });
   on(document, 'keydown', (event) => {
     if (event.key === 'Escape') closeNavigation();
   });
@@ -71,7 +92,7 @@ export function initializePage() {
     if (!consent.checked) { event.preventDefault(); const error = document.querySelector('[data-consent-error]'); if (error) error.hidden = false; consent.focus(); return; }
     event.preventDefault(); link.setAttribute('aria-busy', 'true');
     try {
-      const response = await fetch('/privacy/consent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'personal-data', version: '2026-11-21' }), signal });
+      const response = await fetch('/privacy/consent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'personal-data', version: CONSENT_VERSION }), signal });
       if (!response.ok) throw new Error('Consent could not be saved');
       window.location.assign(link.href);
     } catch { link.removeAttribute('aria-busy'); const error = document.querySelector('[data-consent-error]'); if (error) { error.textContent = 'Could not save your consent. Please try again.'; error.hidden = false; } }

@@ -1,6 +1,6 @@
 # MindLarp
 
-The website, documentation, chat, and developer console for the MindLarp model family by ClodLeGrande. Built with Next.js 16, React 19, Node.js, PostgreSQL, GSAP, and Lenis. The dark amber, terminal-inspired interface is based on the official Hermes Agent visual language, adapted for a model platform.
+The website, documentation, chat, and developer console for the MindLarp model family by ClodLeGrande. Built with Next.js 16, React 19, Node.js, PostgreSQL, GSAP, and Lenis. The monochrome, terminal-inspired interface is based on the official Hermes Agent visual language, adapted for a model platform.
 
 ## Features
 
@@ -9,8 +9,8 @@ The website, documentation, chat, and developer console for the MindLarp model f
 - SEO metadata, Open Graph, JSON-LD, `robots.txt`, sitemap, and web manifest.
 - Chat connected to a configurable OpenAI-compatible inference service.
 - Open WebUI chat container wired to the MindLarp API for conversations with the model family.
-- Owner setup, owner password recovery sign-in, Google/GitHub OAuth, and logout.
-- Google and GitHub OAuth with PKCE where supported.
+- Owner setup, Google/GitHub/Discord OAuth sign-in, and logout.
+- Google, GitHub, and Discord OAuth; Google uses PKCE.
 - Member accounts are created through OAuth; password registration and email reset are disabled.
 - Console with scoped API keys, usage reporting, profile settings, and billing.
 - Stripe Checkout, Customer Portal, and signed subscription webhooks.
@@ -26,7 +26,7 @@ MindLarp does not include a model runtime. Chat and inference return a clear `50
 - npm
 - Docker with Docker Compose for the local database
 - Optional: an OpenAI-compatible inference endpoint
-- Optional: Google, GitHub, Stripe, and SMTP credentials
+- Optional: Google, GitHub, Discord, and Stripe credentials
 
 ## Quick start
 
@@ -40,7 +40,7 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173). PostgreSQL listens only on `127.0.0.1:54322` and stores data in the named `mindlarp-postgres` Docker volume.
 
-On a new installation, visit `/setup` and create the owner account. The original owner can sign in with that password at `/login`; OAuth-created accounts use their linked Google or GitHub provider. `/register` redirects to `/login`; password registration and email password recovery are disabled.
+On a new installation, visit `/setup` and create the owner account. On a new installation, the first verified Google, GitHub, or Discord account becomes the owner. Sign-in at `/login` uses the linked provider; password setup and recovery are disabled. `/register` redirects to `/login`; password registration and email password recovery are disabled.
 - `/chat` opens the model chat.
 - `/console` manages keys, usage, billing, and settings.
 - `/docs` contains the developer documentation.
@@ -61,7 +61,7 @@ npm run build
 npm start
 ```
 
-The production server defaults to port `3000`; set `PORT=5173` to keep the development port. `check:production` loads `.env` when present and fails before rollout if PostgreSQL, HTTPS, inference quota/entitlement, SMTP TLS, or provider pairings are unsafe. If development reports `EADDRINUSE`, stop the existing process or choose another port with `PORT=5174 npm run dev`.
+The production server defaults to port `3000`; set `PORT=5173` to keep the development port. `check:production` loads `.env` when present and fails before rollout if PostgreSQL, HTTPS, inference quota/entitlement, or provider pairings are unsafe. If development reports `EADDRINUSE`, stop the existing process or choose another port with `PORT=5174 npm run dev`.
 
 ## Configuration
 
@@ -72,10 +72,14 @@ Next.js loads configuration from `.env`. The migration commands also read `.env`
 | `NODE_ENV` | No | Use `production` to enable secure session cookies. |
 | `HOST` | No | Listen address; defaults to `0.0.0.0`. |
 | `PORT` | No | HTTP port; development default is `5173`. |
-| `PUBLIC_URL` | Production | Public origin without a trailing slash. Used for OAuth callbacks, canonical URLs, and Stripe redirects. |
+| `PUBLIC_URL` | No | Local or non-Vercel public origin without a trailing slash. |
+| `CANONICAL_SITE_URL` | No | Optional production canonical origin; defaults to `https://mindlarp.com` on Vercel Production. |
+| `MINDLARP_CONSENT_SECRET` | No | HMAC key for signed consent cookies; falls back to the server-only `DATABASE_URL` when unset. |
+| `STORE_CACHE_TTL_MS` | No | PostgreSQL in-process snapshot refresh interval; defaults to `1000` ms. |
 | `DATABASE_URL` | For PostgreSQL | Application PostgreSQL connection. When set, it takes precedence over JSON storage. Use a pooler for hosted Supabase. |
 | `DIRECT_URL` | Recommended | Direct PostgreSQL connection used by migration and import commands. Falls back to `DATABASE_URL`. |
 | `DATABASE_POOL_SIZE` | No | Maximum PostgreSQL connections per Node.js process; defaults to `10`. Multiply it by the replica count when sizing PostgreSQL. |
+| `STORE_CACHE_TTL_MS` | No | PostgreSQL in-process snapshot refresh interval in milliseconds; defaults to `1000` and is clamped to at least `250`. |
 | `DATABASE_QUERY_TIMEOUT`, `DATABASE_STATEMENT_TIMEOUT`, `DATABASE_LOCK_TIMEOUT` | No | Millisecond limits; default to `15000`, `15000`, and `5000`. Use larger migration-role values only when a schema change requires them. |
 | `DATABASE_SSL` | No | Set `true` when the server requires TLS. Local Docker does not require it. |
 | `DATABASE_SSL_REJECT_UNAUTHORIZED` | No | Defaults to `true`; disabling certificate verification is rejected by production validation. |
@@ -99,6 +103,10 @@ Next.js loads configuration from `.env`. The migration commands also read `.env`
 | `GOOGLE_CLIENT_SECRET` | For Google login | Google OAuth client secret. |
 | `GITHUB_CLIENT_ID` | For GitHub login | GitHub OAuth client ID. |
 | `GITHUB_CLIENT_SECRET` | For GitHub login | GitHub OAuth client secret. |
+| `DISCORD_CLIENT_ID` | For Discord login | Discord OAuth application client ID. |
+| `DISCORD_CLIENT_SECRET` | For Discord login | Discord OAuth application client secret. |
+| `DISCORD_CLIENT_ID` | For Discord login | Discord OAuth application client ID. |
+| `DISCORD_CLIENT_SECRET` | For Discord login | Discord OAuth application client secret. |
 | `STRIPE_SECRET_KEY` | For billing | Stripe secret API key. |
 | `STRIPE_PRICE_ID` | For billing | ID of a recurring Stripe Price. |
 | `STRIPE_WEBHOOK_SECRET` | For billing | Signing secret for the Stripe webhook endpoint. |
@@ -157,7 +165,7 @@ The local container uses `supabase/postgres:17.6.1.044`; the schema uses standar
 4. Set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SECRET_KEY` only when the corresponding Supabase APIs are added.
 5. Keep database passwords and the Supabase secret key server-side. The current application does not expose direct table access to browsers and does not require permissive RLS policies.
 
-Authentication is currently implemented by the MindLarp server, not Supabase Auth. Sign-in uses Google or GitHub OAuth only; password-based sign-in and password recovery are disabled. The initial owner password is used only during first-time workspace setup.ng to Supabase Auth later requires a deliberate session and account-mapping migration; it is not silently emulated here.
+Authentication is implemented by the MindLarp server, not Supabase Auth. Members use Google, GitHub, or Discord OAuth. Only the initial workspace owner can use the separate `/owner-login` flow; member password registration and password recovery are disabled. The first verified OAuth account becomes the initial workspace owner.ng to Supabase Auth later requires a deliberate session and account-mapping migration; it is not silently emulated here.
 
 ## Model inference
 
@@ -263,16 +271,17 @@ This serves plain HTTP: passwords and chat traffic are unencrypted, so use it on
 
 Signup and role settings persist in the Open WebUI database after first launch and override environment values; manage them in Admin Panel → Settings. The compose file sets `DEFAULT_USER_ROLE: user` so newly registered visitors can chat without manual approval.
 
-## Google and GitHub login
+## Google, GitHub, and Discord login
 
 Create separate OAuth applications with these callback URLs, replacing the origin with `PUBLIC_URL`:
 
 ```text
 http://localhost:5173/auth/google/callback
 http://localhost:5173/auth/github/callback
+http://localhost:5173/auth/discord/callback
 ```
 
-For Google, configure an OAuth **Web application** in Google Cloud Console. For GitHub, create an OAuth App. OAuth routes return `503` while a provider is unconfigured. Identities are linked only by provider ID. A matching verified email is not sufficient to attach an identity to an existing password account; the user must continue signing in with that account's original authentication method unless an explicit authenticated linking flow is added later.
+For Google, configure an OAuth **Web application** in Google Cloud Console. For GitHub, create an OAuth App. For Discord, create an application in the Discord Developer Portal and enable the `identify` and `email` scopes. OAuth routes return `503` while a provider is unconfigured. Identities are linked only by provider ID. A matching verified email is not sufficient to attach an identity to an existing password account; the user must continue signing in with that account's original authentication method unless an explicit authenticated linking flow is added later.
 
 ## Stripe billing
 
@@ -288,19 +297,6 @@ stripe listen --forward-to localhost:5173/webhooks/stripe
 ```
 
 Checkout and Customer Portal are available from `/console/billing`. Webhook signatures, expected price IDs, customer/subscription binding, duplicate event IDs, and out-of-order event timestamps are enforced. `active` and `trialing` subscriptions authorize inference together with the account daily quota. Metered token invoicing, provider spending limits, and entitlement enforcement for future non-inference features still require explicit implementation.
-
-## SMTP password recovery
-
-```dotenv
-SMTP_HOST=smtp.example.com
-SMTP_PORT=465
-SMTP_SECURE=true
-SMTP_USER=no-reply@example.com
-SMTP_PASS=your-smtp-password
-SMTP_FROM="MindLarp <no-reply@example.com>"
-```
-
-For port `587`, use `SMTP_SECURE=false` with STARTTLS and keep `SMTP_REQUIRE_TLS=true`. Production rejects plaintext SMTP outside a local test relay. Reset links expire after 30 minutes, are stored only as hashes, are consumed atomically, and cannot be reused; concurrent submissions of the same token can succeed only once. A successful reset signs out all existing sessions. Without `SMTP_HOST`, recovery reports its configuration state rather than claiming an email was sent.
 
 ## Verification
 

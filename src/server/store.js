@@ -14,6 +14,10 @@ export async function getStore() {
     });
   }
   const store = await globalThis.__mindLarpStorePromise;
-  if (process.env.DATABASE_URL) await store.refresh();
+  if (process.env.DATABASE_URL) {
+    const configuredTtl = Number(process.env.STORE_CACHE_TTL_MS || 1000);
+    const ttl = Number.isFinite(configuredTtl) && configuredTtl > 0 ? Math.max(250, configuredTtl) : 1000;
+    if (!store.lastRefreshAt || Date.now() - store.lastRefreshAt >= ttl) await store.refresh();
+  }
   return store;
 }

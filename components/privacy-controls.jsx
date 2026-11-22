@@ -1,6 +1,7 @@
 'use client';
+import { CONSENT_VERSION } from '@/src/consent.js';
 import {useEffect,useState} from 'react';
-const version='2026-11-21',storageKey='mindlarp-cookie-preferences';
+const version=CONSENT_VERSION,storageKey='mindlarp-cookie-preferences';
 async function persistPreferences(prefs){const response=await fetch('/privacy/consent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'cookies',...prefs})});if(!response.ok)throw Error('Cookie preferences could not be saved');localStorage.setItem(storageKey,JSON.stringify(prefs));}
 export function PrivacyControls(){
  const [visible,setVisible]=useState(false),[settings,setSettings]=useState(false),[analytics,setAnalytics]=useState(false),[marketing,setMarketing]=useState(false);
