@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 export function publicUrl(fallback = 'http://localhost:3000', env = process.env) {
   const origin = env.VERCEL_ENV === 'production'
     ? (env.CANONICAL_SITE_URL || 'https://mindlarp.com')
-    : (env.PUBLIC_URL || (env.VERCEL_URL ? `https://${env.VERCEL_URL}` : fallback));
+    : (env.VERCEL_URL ? `https://${env.VERCEL_URL}` : (env.PUBLIC_URL || fallback));
   return origin.replace(/\/$/, '');
 }
 
