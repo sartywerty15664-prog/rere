@@ -126,10 +126,10 @@ async function post(origin, path, body, cookie = '', requestOrigin = origin) {
   });
 }
 
-async function consentCookie(origin) {
+async function consentCookie(origin, requestOrigin = origin) {
   const response = await fetch(`${origin}/privacy/consent`, {
     method: 'POST',
-    headers: { Origin: origin, 'Content-Type': 'application/json' },
+    headers: { Origin: requestOrigin, 'Content-Type': 'application/json' },
     body: JSON.stringify({ type: 'personal-data', version: '2026-11-21' }),
   });
   assert.equal(response.status, 200);
@@ -412,7 +412,7 @@ test('Google and GitHub OAuth report missing configuration or redirect with prot
   const unconfiguredConsent = await consentCookie(unconfigured.origin);
   assert.equal((await fetch(`${unconfigured.origin}/auth/google`, { headers: { Cookie: unconfiguredConsent } })).status, 503);
   const configured = await startApp(t, { env: { GOOGLE_CLIENT_ID: 'client-id', GOOGLE_CLIENT_SECRET: 'secret', GITHUB_CLIENT_ID: 'github-id', GITHUB_CLIENT_SECRET: 'github-secret', PUBLIC_URL: 'https://mindlarp.test' } });
-  const configuredConsent = await consentCookie(configured.origin);
+  const configuredConsent = await consentCookie(configured.origin, 'https://mindlarp.test');
   for (const provider of ['google', 'github']) {
     const response = await fetch(`${configured.origin}/auth/${provider}`, { redirect: 'manual', headers: { Cookie: configuredConsent } });
     assert.equal(response.status, 302);
