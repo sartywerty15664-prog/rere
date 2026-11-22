@@ -14,7 +14,8 @@ export default async function Page({ searchParams }) {
   const errors = {
     oauth: 'Social sign-in could not be completed. Try again.',
     google: 'Google sign-in is not configured on this server.',
-    github: 'GitHub sign-in is not configured on this server.',\n    discord: 'Discord sign-in is not configured on this server.',
+    github: 'GitHub sign-in is not configured on this server.',
+    discord: 'Discord sign-in is not configured on this server.',
     consent: 'Confirm the privacy consent before continuing with social sign-in.',
   };
   return authPage({ mode: 'login', error: errors[query.error] || '' });
