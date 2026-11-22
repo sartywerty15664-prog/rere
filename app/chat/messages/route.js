@@ -28,8 +28,16 @@ export async function POST(request) {
   const reservation = await reserveInferenceAccess(user.id, '/chat');
   if (reservation.error) return apiError(...reservation.error);
   const reservationId = reservation.reservationId;
+  const history = (conversation?.messages || [])
+    .filter((message) => message && ['user', 'assistant', 'system'].includes(message.role) && typeof message.content === 'string')
+    .slice(-20)
+    .map(({ role, content: text }) => ({ role, content: text.slice(-12_000) }));
+  let historyLength = history.reduce((sum, message) => sum + message.content.length, 0);
+  while (history.length && historyLength + content.length > 60_000) {
+    historyLength -= history.shift().content.length;
+  }
   try {
-    const response = await fetch(`${process.env.MINDLARP_UPSTREAM_URL.replace(/\/$/, '')}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(process.env.MINDLARP_UPSTREAM_KEY ? { Authorization: `Bearer ${process.env.MINDLARP_UPSTREAM_KEY}` } : {}) }, body: JSON.stringify({ model: model.id, messages: [...(conversation?.messages || []).map(({ role, content: text }) => ({ role, content: text })), { role: 'user', content }], max_tokens: 4096 }), signal: AbortSignal.timeout(60000) });
+    const response = await fetch(`${process.env.MINDLARP_UPSTREAM_URL.replace(/\/$/, '')}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(process.env.MINDLARP_UPSTREAM_KEY ? { Authorization: `Bearer ${process.env.MINDLARP_UPSTREAM_KEY}` } : {}) }, body: JSON.stringify({ model: model.id, messages: [...history, { role: 'user', content }], max_tokens: 4096 }), signal: AbortSignal.timeout(60000) });
     const { text, error: responseError } = await readBody(response, 1_048_576);
     if (responseError) {
       await recordUsage({ userId: user.id, endpoint: '/chat', model: model.id, status: 502, reservationId });
