@@ -1,6 +1,6 @@
 # MindLarp
 
-The website, documentation, chat, and developer console for the MindLarp model family by ClodLeGrande. Built with Next.js 16, React 19, Node.js, PostgreSQL, GSAP, and Lenis. The dark amber, terminal-inspired interface is based on the official Hermes Agent visual language, adapted for a model platform.
+The website, documentation, chat, and developer console for the MindLarp model family by ClodLeGrande. Built with Next.js 16, React 19, Node.js, PostgreSQL, GSAP, and Lenis. The monochrome, terminal-inspired interface is based on the official Hermes Agent visual language, adapted for a model platform.
 
 ## Features
 
@@ -10,7 +10,7 @@ The website, documentation, chat, and developer console for the MindLarp model f
 - Chat connected to a configurable OpenAI-compatible inference service.
 - Open WebUI chat container wired to the MindLarp API for conversations with the model family.
 - Owner setup, Google/GitHub/Discord OAuth sign-in, and logout.
-- Google and GitHub OAuth with PKCE where supported.
+- Google, GitHub, and Discord OAuth; Google uses PKCE.
 - Member accounts are created through OAuth; password registration and email reset are disabled.
 - Console with scoped API keys, usage reporting, profile settings, and billing.
 - Stripe Checkout, Customer Portal, and signed subscription webhooks.
@@ -165,7 +165,7 @@ The local container uses `supabase/postgres:17.6.1.044`; the schema uses standar
 4. Set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SECRET_KEY` only when the corresponding Supabase APIs are added.
 5. Keep database passwords and the Supabase secret key server-side. The current application does not expose direct table access to browsers and does not require permissive RLS policies.
 
-Authentication is currently implemented by the MindLarp server, not Supabase Auth. Sign-in uses Google, GitHub, or Discord OAuth; password-based sign-in is disabled. The first verified OAuth account becomes the initial workspace owner.ng to Supabase Auth later requires a deliberate session and account-mapping migration; it is not silently emulated here.
+Authentication is implemented by the MindLarp server, not Supabase Auth. Members use Google, GitHub, or Discord OAuth. Only the initial workspace owner can use the separate `/owner-login` flow; member password registration and password recovery are disabled. The first verified OAuth account becomes the initial workspace owner.ng to Supabase Auth later requires a deliberate session and account-mapping migration; it is not silently emulated here.
 
 ## Model inference
 
