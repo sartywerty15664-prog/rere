@@ -19,9 +19,13 @@ export async function POST(request) {
   const object = event.data.object;
   const supported = ['checkout.session.completed', 'customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted'].includes(event.type);
   if (!supported) return json({ received: true });
-  if (event.type.startsWith('customer.subscription.') && !object.items?.data?.some((item) => item.price?.id === process.env.STRIPE_PRICE_ID)) {
+  const matchedItem = object.items?.data?.find((item) => item.price?.id === process.env.STRIPE_PRICE_ID);
+  if (event.type.startsWith('customer.subscription.') && !matchedItem) {
     return json({ error: 'Unexpected subscription price.' }, 400);
   }
+  const currentPeriodEnd = object.current_period_end
+    ?? matchedItem?.current_period_end
+    ?? object.items?.data?.[0]?.current_period_end;
   const store = await getStore();
   const user = store.data.users.find((item) => item.id === object.client_reference_id || item.id === object.metadata?.userId || item.billing?.stripeCustomerId === object.customer);
   if (!user) return json({ received: true });
@@ -38,8 +42,8 @@ export async function POST(request) {
       stripeCustomerId: String(object.customer || billing.stripeCustomerId || ''),
       subscriptionId: object.subscription || object.id,
       status: event.type === 'checkout.session.completed' ? 'pending' : object.status,
-      priceId: object.items?.data?.find((item) => item.price?.id === process.env.STRIPE_PRICE_ID)?.price?.id || billing.priceId || process.env.STRIPE_PRICE_ID,
-      currentPeriodEnd: object.current_period_end ? new Date(object.current_period_end * 1000).toISOString() : billing.currentPeriodEnd || null,
+      priceId: matchedItem?.price?.id || billing.priceId || process.env.STRIPE_PRICE_ID,
+      currentPeriodEnd: currentPeriodEnd ? new Date(currentPeriodEnd * 1000).toISOString() : billing.currentPeriodEnd || null,
       lastStripeEventCreated: Number.isFinite(event.created) ? Math.max(event.created, billing.lastStripeEventCreated || 0) : billing.lastStripeEventCreated,
       processedStripeEventIds: [event.id, ...(billing.processedStripeEventIds || [])].slice(0, 100),
     };
