@@ -38,17 +38,13 @@ function boundedSet(store, key, value, maxSize) {
   store.set(key, value);
 }
 
-function consume(store, key, limit, windowMs, now) {
-  for (const [entryKey, entry] of store) {
-    if (entry.resetAt <= now) store.delete(entryKey);
-  }
-
+function consume(store, key, limit, windowMs, now, maxSize) {
   let entry = store.get(key);
   if (!entry || entry.resetAt <= now) {
     entry = { count: 0, resetAt: now + windowMs };
   }
   entry.count += 1;
-  boundedSet(store, key, entry, store.__kind === 'account' ? MAX_ACCOUNT_BUCKETS : MAX_IP_BUCKETS);
+  boundedSet(store, key, entry, maxSize);
   return {
     allowed: entry.count <= limit,
     retryAfter: Math.max(1, Math.ceil((entry.resetAt - now) / 1000)),
@@ -65,9 +61,8 @@ export function consumeRateLimit(request, bucket, { limit, windowMs, identifier 
   const isAccount = typeof identifier === 'string' && identifier.length > 0;
   const kind = isAccount ? 'account' : 'ip';
   const store = storeFor(bucket, kind);
-  store.__kind = kind;
   const key = isAccount ? identifier : clientKey(request);
-  return consume(store, key, limit, windowMs, now);
+  return consume(store, key, limit, windowMs, now, isAccount ? MAX_ACCOUNT_BUCKETS : MAX_IP_BUCKETS);
 }
 
 export function clearRateLimit(request, bucket, identifier) {
