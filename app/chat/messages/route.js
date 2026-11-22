@@ -48,7 +48,7 @@ export async function POST(request) {
     ]);
     return json({ message: answer, model: model.id });
   } catch {
-    await recordUsage({ userId: user.id, endpoint: '/chat', model: model.id, status: 502 });
+    await recordUsage({ userId: user.id, endpoint: '/chat', model: model.id, status: 502, reservationId });
     return apiError(502, 'The model service could not be reached.', 'upstream_error');
   }
 }
