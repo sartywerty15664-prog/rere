@@ -6,7 +6,7 @@ export const metadata = {
   ...pageMetadata('The open intelligence model family', 'Meet MindLarp Larp 1 and Larp 1 Code: two AI models for everyday work and deeper reasoning. Coming soon — start a chat or build with one simple API.'),
   metadataBase: new URL(publicUrl()),
   title: { default: 'The open intelligence model family · MindLarp', template: '%s · MindLarp' },
-  icons: { icon: '/assets/logo.png' },
+  icons: { icon: [{ url: '/favicon.svg', type: 'image/svg+xml', sizes: '48x48' }] },
   manifest: '/manifest.webmanifest',
 };
 
