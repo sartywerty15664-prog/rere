@@ -6,8 +6,7 @@ import { publicUrl } from '@/src/server/config.js';
 export async function POST(request) {
   const expectedOrigin = new URL(publicUrl()).origin;
   const origin = request.headers.get('origin');
-  const fetchSite = request.headers.get('sec-fetch-site');
-  if (!origin || origin !== expectedOrigin || (fetchSite && fetchSite !== 'same-origin')) {
+  if (!origin || origin !== expectedOrigin) {
     return json({ error: 'A same-origin request is required.' }, 403);
   }
 
