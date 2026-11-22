@@ -33,7 +33,7 @@ export function startAnimations() {
     const consoleBars = document.querySelectorAll('.mock-console i');
     if (orb) gsap.to(orb, { rotation: 360, duration: 24, ease: 'none', repeat: -1 });
     if (consoleBars.length) gsap.to(consoleBars, { scaleY: () => gsap.utils.random(0.45, 1), transformOrigin: 'bottom', duration: 1.6, stagger: 0.15, repeat: -1, yoyo: true, repeatRefresh: true, ease: 'sine.inOut' });
-    document.querySelectorAll('.button').forEach((button) => {
+    if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) document.querySelectorAll('.button').forEach((button) => {
       button.addEventListener('mousemove', (event) => {
         const rect = button.getBoundingClientRect();
         gsap.to(button, { x: (event.clientX - rect.left - rect.width / 2) * 0.12, y: (event.clientY - rect.top - rect.height / 2) * 0.12, duration: 0.25 });
