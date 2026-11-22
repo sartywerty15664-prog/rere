@@ -4,7 +4,7 @@ import { formRedirect } from '@/src/server/responses.js';
 
 export async function GET(request, { params }) {
   const { provider } = await params;
-  if (!['google', 'github'].includes(provider)) return new Response('Not found', { status: 404 });
+  if (!['google', 'github', 'discord'].includes(provider)) return new Response('Not found', { status: 404 });
   const response = formRedirect(request, '/console');
   response.cookies.set(oauthCookieName(provider), '', { path: '/', httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 0 });
   try {
