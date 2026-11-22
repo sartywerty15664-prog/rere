@@ -9,7 +9,7 @@ The website, documentation, chat, and developer console for the MindLarp model f
 - SEO metadata, Open Graph, JSON-LD, `robots.txt`, sitemap, and web manifest.
 - Chat connected to a configurable OpenAI-compatible inference service.
 - Open WebUI chat container wired to the MindLarp API for conversations with the model family.
-- Owner setup, owner password recovery sign-in, Google/GitHub OAuth, and logout.
+- Owner setup, Google/GitHub/Discord OAuth sign-in, and logout.
 - Google and GitHub OAuth with PKCE where supported.
 - Member accounts are created through OAuth; password registration and email reset are disabled.
 - Console with scoped API keys, usage reporting, profile settings, and billing.
@@ -40,7 +40,7 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173). PostgreSQL listens only on `127.0.0.1:54322` and stores data in the named `mindlarp-postgres` Docker volume.
 
-On a new installation, visit `/setup` and create the owner account. The original owner can sign in with that password at `/login`; OAuth-created accounts use their linked Google or GitHub provider. `/register` redirects to `/login`; password registration and email password recovery are disabled.
+On a new installation, visit `/setup` and create the owner account. The setup password initializes the owner account only; sign-in at `/login` uses a linked Google, GitHub, or Discord identity. `/register` redirects to `/login`; password registration and email password recovery are disabled.
 - `/chat` opens the model chat.
 - `/console` manages keys, usage, billing, and settings.
 - `/docs` contains the developer documentation.
@@ -76,6 +76,7 @@ Next.js loads configuration from `.env`. The migration commands also read `.env`
 | `DATABASE_URL` | For PostgreSQL | Application PostgreSQL connection. When set, it takes precedence over JSON storage. Use a pooler for hosted Supabase. |
 | `DIRECT_URL` | Recommended | Direct PostgreSQL connection used by migration and import commands. Falls back to `DATABASE_URL`. |
 | `DATABASE_POOL_SIZE` | No | Maximum PostgreSQL connections per Node.js process; defaults to `10`. Multiply it by the replica count when sizing PostgreSQL. |
+| `STORE_CACHE_TTL_MS` | No | PostgreSQL in-process snapshot refresh interval in milliseconds; defaults to `1000` and is clamped to at least `250`. |
 | `DATABASE_QUERY_TIMEOUT`, `DATABASE_STATEMENT_TIMEOUT`, `DATABASE_LOCK_TIMEOUT` | No | Millisecond limits; default to `15000`, `15000`, and `5000`. Use larger migration-role values only when a schema change requires them. |
 | `DATABASE_SSL` | No | Set `true` when the server requires TLS. Local Docker does not require it. |
 | `DATABASE_SSL_REJECT_UNAUTHORIZED` | No | Defaults to `true`; disabling certificate verification is rejected by production validation. |
@@ -99,6 +100,8 @@ Next.js loads configuration from `.env`. The migration commands also read `.env`
 | `GOOGLE_CLIENT_SECRET` | For Google login | Google OAuth client secret. |
 | `GITHUB_CLIENT_ID` | For GitHub login | GitHub OAuth client ID. |
 | `GITHUB_CLIENT_SECRET` | For GitHub login | GitHub OAuth client secret. |
+| `DISCORD_CLIENT_ID` | For Discord login | Discord OAuth application client ID. |
+| `DISCORD_CLIENT_SECRET` | For Discord login | Discord OAuth application client secret. |
 | `STRIPE_SECRET_KEY` | For billing | Stripe secret API key. |
 | `STRIPE_PRICE_ID` | For billing | ID of a recurring Stripe Price. |
 | `STRIPE_WEBHOOK_SECRET` | For billing | Signing secret for the Stripe webhook endpoint. |
@@ -157,7 +160,7 @@ The local container uses `supabase/postgres:17.6.1.044`; the schema uses standar
 4. Set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SECRET_KEY` only when the corresponding Supabase APIs are added.
 5. Keep database passwords and the Supabase secret key server-side. The current application does not expose direct table access to browsers and does not require permissive RLS policies.
 
-Authentication is currently implemented by the MindLarp server, not Supabase Auth. Sign-in uses Google or GitHub OAuth only; password-based sign-in and password recovery are disabled. The initial owner password is used only during first-time workspace setup.ng to Supabase Auth later requires a deliberate session and account-mapping migration; it is not silently emulated here.
+Authentication is currently implemented by the MindLarp server, not Supabase Auth. Sign-in uses Google, GitHub, or Discord OAuth; password-based sign-in is disabled. The initial owner password is used only during first-time workspace setup.ng to Supabase Auth later requires a deliberate session and account-mapping migration; it is not silently emulated here.
 
 ## Model inference
 
@@ -263,16 +266,17 @@ This serves plain HTTP: passwords and chat traffic are unencrypted, so use it on
 
 Signup and role settings persist in the Open WebUI database after first launch and override environment values; manage them in Admin Panel → Settings. The compose file sets `DEFAULT_USER_ROLE: user` so newly registered visitors can chat without manual approval.
 
-## Google and GitHub login
+## Google, GitHub, and Discord login
 
 Create separate OAuth applications with these callback URLs, replacing the origin with `PUBLIC_URL`:
 
 ```text
 http://localhost:5173/auth/google/callback
 http://localhost:5173/auth/github/callback
+http://localhost:5173/auth/discord/callback
 ```
 
-For Google, configure an OAuth **Web application** in Google Cloud Console. For GitHub, create an OAuth App. OAuth routes return `503` while a provider is unconfigured. Identities are linked only by provider ID. A matching verified email is not sufficient to attach an identity to an existing password account; the user must continue signing in with that account's original authentication method unless an explicit authenticated linking flow is added later.
+For Google, configure an OAuth **Web application** in Google Cloud Console. For GitHub, create an OAuth App. For Discord, create an application in the Discord Developer Portal and enable the `identify` and `email` scopes. OAuth routes return `503` while a provider is unconfigured. Identities are linked only by provider ID. A matching verified email is not sufficient to attach an identity to an existing password account; the user must continue signing in with that account's original authentication method unless an explicit authenticated linking flow is added later.
 
 ## Stripe billing
 
