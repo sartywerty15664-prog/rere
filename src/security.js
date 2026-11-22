@@ -19,9 +19,15 @@ export async function hashPassword(password) {
 }
 
 export async function verifyPassword(password, salt, expectedHash) {
-  const derived = await scrypt(password, salt, 64, SCRYPT_OPTIONS);
   const expected = Buffer.from(expectedHash, 'hex');
-  return expected.length === derived.length && timingSafeEqual(derived, expected);
+  if (expected.length !== 64) return false;
+  const current = await scrypt(password, salt, 64, SCRYPT_OPTIONS);
+  if (timingSafeEqual(current, expected)) return true;
+
+  // Existing accounts were created with Node's historical default N=2^14.
+  // Keep them able to sign in while all newly stored hashes use N=2^17.
+  const legacy = await scrypt(password, salt, 64, { N: 1 << 14, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
+  return timingSafeEqual(legacy, expected);
 }
 
 export function safeEqual(left, right) {
