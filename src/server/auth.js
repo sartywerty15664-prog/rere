@@ -84,6 +84,7 @@ export async function createSession(userId) {
       throw new Error('Cannot create session for missing user');
     }
 
+    data.sessions = data.sessions.filter((item) => Date.parse(item.expiresAt) > Date.now());
     data.sessions.push(session);
   });
 
