@@ -56,7 +56,7 @@ export function validateProductionConfig(env = process.env) {
     const priceKey = `STRIPE_PRICE_ID_${id}`;
     const linkKey = `STRIPE_PAYMENT_LINK_${id}`;
     const limitKey = `INFERENCE_DAILY_REQUEST_LIMIT_${id}`;
-    if (env[linkKey] && !/^https:\\/\\//.test(env[linkKey])) errors.push(`${linkKey} must be an HTTPS URL.`);
+    if (env[linkKey] && !env[linkKey].startsWith('https://')) errors.push(`${linkKey} must be an HTTPS URL.`);
     if (env[limitKey] && (!Number.isInteger(Number(env[limitKey])) || Number(env[limitKey]) < 1 || Number(env[limitKey]) > 100000)) {
       errors.push(`${limitKey} must be an integer between 1 and 100000.`);
     }
