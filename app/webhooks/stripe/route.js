@@ -1,6 +1,7 @@
 import { getStripe } from '@/src/server/config.js';
 import { json, readBody } from '@/src/server/responses.js';
 import { getStore } from '@/src/server/store.js';
+import { acceptedStripePriceIds } from '@/src/server/plans.js';
 
 export const runtime = 'nodejs';
 
@@ -27,7 +28,8 @@ export async function POST(request) {
   if (!supported) return json({ received: true });
 
   const isSubscriptionEvent = event.type.startsWith('customer.subscription.');
-  const matchedItem = object.items?.data?.find((item) => item.price?.id === process.env.STRIPE_PRICE_ID);
+  const acceptedPrices = new Set(acceptedStripePriceIds());
+  const matchedItem = object.items?.data?.find((item) => acceptedPrices.has(item.price?.id));
   // A validly signed event for an unexpected price is terminal for this app.
   // Acknowledge it so Stripe does not retry a permanently unprocessable event.
   if (isSubscriptionEvent && !matchedItem) return json({ received: true, ignored: 'unexpected_price' });
