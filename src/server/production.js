@@ -47,6 +47,20 @@ export function validateProductionConfig(env = process.env) {
   if (stripeValues.some((key) => env[key]) && stripeValues.some((key) => !env[key])) {
     errors.push('STRIPE_SECRET_KEY, STRIPE_PRICE_ID, and STRIPE_WEBHOOK_SECRET must be configured together.');
   }
+  const planIds = ['PRO', 'PLUS', 'STUDIO'];
+  const tierBillingConfigured = planIds.some((id) => env[`STRIPE_PRICE_ID_${id}`] || env[`STRIPE_PAYMENT_LINK_${id}`]);
+  if (tierBillingConfigured && stripeValues.some((key) => !env[key])) {
+    errors.push('Tier-specific Stripe prices or payment links require STRIPE_SECRET_KEY, STRIPE_PRICE_ID, and STRIPE_WEBHOOK_SECRET.');
+  }
+  for (const id of planIds) {
+    const priceKey = `STRIPE_PRICE_ID_${id}`;
+    const linkKey = `STRIPE_PAYMENT_LINK_${id}`;
+    const limitKey = `INFERENCE_DAILY_REQUEST_LIMIT_${id}`;
+    if (env[linkKey] && !env[linkKey].startsWith('https://')) errors.push(`${linkKey} must be an HTTPS URL.`);
+    if (env[limitKey] && (!Number.isInteger(Number(env[limitKey])) || Number(env[limitKey]) < 1 || Number(env[limitKey]) > 100000)) {
+      errors.push(`${limitKey} must be an integer between 1 and 100000.`);
+    }
+  }
   for (const key of ['DATABASE_QUERY_TIMEOUT', 'DATABASE_STATEMENT_TIMEOUT', 'DATABASE_LOCK_TIMEOUT']) {
     if (env[key] && (!Number.isInteger(Number(env[key])) || Number(env[key]) < 100 || Number(env[key]) > 300000)) {
       errors.push(`${key} must be an integer between 100 and 300000 milliseconds.`);

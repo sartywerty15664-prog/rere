@@ -45,3 +45,9 @@ export const docsNavigation = [
 export function getModel(slug) {
   return models.find((model) => model.slug === slug);
 }
+
+export const plans = [
+{id:'pro',name:'Pro',price:19,tagline:'For everyday work',dailyLimit:500,features:['Both Larp 1 models','500 requests per day (planned)','1M context window','Chat + API access','Standard support'],linkEnv:'STRIPE_PAYMENT_LINK_PRO',priceEnv:'STRIPE_PRICE_ID_PRO',limitEnv:'INFERENCE_DAILY_REQUEST_LIMIT_PRO'},
+{id:'plus',name:'Plus',price:79,tagline:'For heavier workloads',dailyLimit:2500,featured:true,features:['Everything in Pro','2,500 requests per day (planned)','Priority support','Early access to new models'],linkEnv:'STRIPE_PAYMENT_LINK_PLUS',priceEnv:'STRIPE_PRICE_ID_PLUS',limitEnv:'INFERENCE_DAILY_REQUEST_LIMIT_PLUS'},
+{id:'studio',name:'Studio',price:199,tagline:'For products at scale',dailyLimit:10000,features:['Everything in Plus','10,000 requests per day (planned)','Highest daily throughput','Dedicated support'],linkEnv:'STRIPE_PAYMENT_LINK_STUDIO',priceEnv:'STRIPE_PRICE_ID_STUDIO',limitEnv:'INFERENCE_DAILY_REQUEST_LIMIT_STUDIO'}
+];

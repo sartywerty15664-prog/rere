@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { getStore } from './store.js';
+import { planDailyLimit, planForPriceId } from './plans.js';
 
 export function getUsageStats(store, userId, days, now = Date.now()) {
   const current = new Date(now);
@@ -48,7 +49,8 @@ export async function reserveInferenceAccess(userId, endpoint) {
       return;
     }
 
-    const dailyLimit = Number(process.env.INFERENCE_DAILY_REQUEST_LIMIT || 0);
+    const plan = planForPriceId(user.billing?.priceId);
+    const dailyLimit = plan ? planDailyLimit(plan) : Number(process.env.INFERENCE_DAILY_REQUEST_LIMIT || 0);
     if (dailyLimit > 0) {
       const requests = data.usage.filter((event) => event.userId === userId
         && ['/chat', '/v1/chat/completions'].includes(event.endpoint)
